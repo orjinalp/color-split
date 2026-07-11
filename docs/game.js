@@ -208,19 +208,25 @@ function makePourMove(from, to, state) {
 }
 
 function startPourMove(move) {
-  applyMove(tubes, move);
   anims.push({ from: move.from, to: move.to, n: move.n, color: move.color, t0: performance.now(), dur: 520 + move.n * 75 });
 }
 
-function tubeIsAnimating(i) {
-  return anims.some(a => a.from === i || a.to === i);
+function tubeIsPouringOut(i) {
+  return anims.some(a => a.from === i);
 }
 
 function tryPour(from, to) {
   if (won) return false;
-  if (tubeIsAnimating(from) || tubeIsAnimating(to)) return false;
+  
+  // Döküm yapan (eğik durumdaki) bir şişeden başka bir yere döküm yapılamaz
+  // veya döküm yapan bir şişenin içine döküm yapılamaz.
+  if (tubeIsPouringOut(from) || tubeIsPouringOut(to)) return false;
+  
   const move = makePourMove(from, to, tubes);
   if (!move) return false;
+  
+  // Hemen dökümü başlat
+  applyMove(tubes, move);
   history.push({ from, to, n: move.n });
   hint = null;
   startPourMove(move);
@@ -574,11 +580,22 @@ function drawTube(R, spec) {
     const segBottom = ibot - s * segH;
     drawLiquidBand(ix, iw, segBottom - segH - 0.5, segH + 1, spec.units[s], R.i * 17 + s, 0);
   }
-  if (spec.partialTop && spec.partialTop.frac > 0.001) {
-    const base = spec.units.length;
-    const segBottom = ibot - base * segH;
+  
+  let currentBase = spec.units.length;
+  if (spec.partialTops && spec.partialTops.length) {
+    for (let k = 0; k < spec.partialTops.length; k++) {
+      const pt = spec.partialTops[k];
+      if (pt.frac > 0.001) {
+        const segBottom = ibot - currentBase * segH;
+        const ph = segH * pt.frac;
+        drawLiquidBand(ix, iw, segBottom - ph, ph + 0.5, pt.color, R.i * 17 + currentBase + 9 + k, angle);
+        currentBase += pt.frac;
+      }
+    }
+  } else if (spec.partialTop && spec.partialTop.frac > 0.001) {
+    const segBottom = ibot - currentBase * segH;
     const ph = segH * spec.partialTop.frac;
-    drawLiquidBand(ix, iw, segBottom - ph, ph + 0.5, spec.partialTop.color, R.i * 17 + base + 9, angle);
+    drawLiquidBand(ix, iw, segBottom - ph, ph + 0.5, spec.partialTop.color, R.i * 17 + currentBase + 9, angle);
   }
   ctx.restore();
 
@@ -849,19 +866,22 @@ function draw(now) {
   const sourceOverlays = [];
 
   for (let i = 0; i < tubes.length; i++) {
-    const spec = { units: tubes[i], partialTop: null, lift: tubeLifts[i] || 0, glow: false, hint: false, tx: 0, ty: 0, angle: 0 };
-    const moving = activeAnims.find(a => a.from === i || a.to === i);
-    if (moving) {
-      if (i === moving.from) {
-        Object.assign(spec, sourcePourPose(L.rects[moving.from], L.rects[moving.to], moving.p, L));
-        spec.partialTop = { color: moving.color, frac: moving.n * (1 - moving.fillP) };
-        sourceOverlays.push({ rect: L.rects[i], spec });
-        continue;
-      } else if (i === moving.to) {
-        spec.units = tubes[i].slice(0, tubes[i].length - moving.n);
-        spec.partialTop = { color: moving.color, frac: moving.n * moving.fillP };
-      }
+    const spec = { units: tubes[i], partialTop: null, partialTops: [], lift: tubeLifts[i] || 0, glow: false, hint: false, tx: 0, ty: 0, angle: 0 };
+    const outgoing = activeAnims.find(a => a.from === i);
+    const incoming = activeAnims.filter(a => a.to === i);
+    
+    if (outgoing) {
+      Object.assign(spec, sourcePourPose(L.rects[outgoing.from], L.rects[outgoing.to], outgoing.p, L));
+      spec.partialTop = { color: outgoing.color, frac: outgoing.n * (1 - outgoing.fillP) };
+      sourceOverlays.push({ rect: L.rects[i], spec });
+      continue;
+    } else if (incoming.length > 0) {
+      let totalN = 0;
+      for (const a of incoming) totalN += a.n;
+      spec.units = tubes[i].slice(0, tubes[i].length - totalN);
+      spec.partialTops = incoming.map(a => ({ color: a.color, frac: a.n * a.fillP }));
     }
+    
     if (hint && (i === hint.from || i === hint.to)) spec.hint = true;
     drawTube(L.rects[i], spec);
   }
