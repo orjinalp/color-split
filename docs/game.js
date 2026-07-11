@@ -377,50 +377,42 @@ function roundRectPath(x, y, w, h, r) {
 function tubePath(x, y, w, h, rt, rb) {
   ctx.beginPath();
   
-  // Calculate relative sizes for the bottle neck and lip
-  const lipW = w * 0.64;
-  const lipX = x + (w - lipW) / 2;
-  const lipH = h * 0.03;
-  const lipR = h * 0.01;
+  const lipExt = w * 0.06; // lip extends 6% of width on each side
+  const lipH = h * 0.03;   // lip height is 3% of total height
+  const lipR = Math.max(1.5, h * 0.006); // small rounding radius for the lip corners
   
-  const neckW = w * 0.52;
-  const neckX = x + (w - neckW) / 2;
-  const neckY = y + h * 0.12;
+  // Start at left body edge, going up
+  ctx.moveTo(x, y + h * 0.2);
+  ctx.lineTo(x, y + lipH + lipR);
   
-  // Start at bottom-left of the lip (rim)
-  ctx.moveTo(lipX, y + lipH);
-  ctx.lineTo(lipX, y + lipR);
-  ctx.arcTo(lipX, y, lipX + lipR, y, lipR);
+  // Curve outward to the left under the lip
+  ctx.arcTo(x, y + lipH, x - lipExt, y + lipH, lipR);
+  ctx.lineTo(x - lipExt, y + lipH);
+  ctx.lineTo(x - lipExt, y + lipR);
   
-  // Top-right lip
-  ctx.lineTo(lipX + lipW - lipR, y);
-  ctx.arcTo(lipX + lipW, y, lipX + lipW, y + lipR, lipR);
-  ctx.lineTo(lipX + lipW, y + lipH);
+  // Top-left outer corner of the lip
+  ctx.arcTo(x - lipExt, y, x - lipExt + lipR, y, lipR);
   
-  // Inner corner right (neck start)
-  ctx.arcTo(neckX + neckW, y + lipH, neckX + neckW, y + lipH + lipR, lipR);
-  ctx.lineTo(neckX + neckW, neckY);
+  // Top edge of the lip going right
+  ctx.lineTo(x + w + lipExt - lipR, y);
   
-  // Shoulder curve right
-  ctx.quadraticCurveTo(neckX + neckW, y + h * 0.16, x + w, y + h * 0.17);
+  // Top-right outer corner of the lip
+  ctx.arcTo(x + w + lipExt, y, x + w + lipExt, y + lipR, lipR);
+  ctx.lineTo(x + w + lipExt, y + lipH - lipR);
   
-  // Body right side to bottom right
+  // Curve inward to the right body under the lip
+  ctx.arcTo(x + w + lipExt, y + lipH, x + w, y + lipH, lipR);
+  ctx.lineTo(x + w, y + lipH);
   ctx.lineTo(x + w, y + h - rb);
+  
+  // Bottom-right corner of the tube
   ctx.arcTo(x + w, y + h, x + w - rb, y + h, rb);
   
-  // Bottom edge to bottom left
+  // Bottom edge going left
   ctx.lineTo(x + rb, y + h);
+  
+  // Bottom-left corner of the tube
   ctx.arcTo(x, y + h, x, y + h - rb, rb);
-  
-  // Body left side up to shoulder
-  ctx.lineTo(x, y + h * 0.17);
-  
-  // Shoulder curve left
-  ctx.quadraticCurveTo(neckX, y + h * 0.16, neckX, neckY);
-  
-  // Neck left side up to lip
-  ctx.lineTo(neckX, y + lipH + lipR);
-  ctx.arcTo(lipX, y + lipH, lipX, y + lipH - lipR, lipR);
   
   ctx.closePath();
 }
