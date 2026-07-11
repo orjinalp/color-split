@@ -177,6 +177,8 @@ let tubeLifts = [];
 let history = [];
 let extraTubes = 0;
 let anims = [];               // { from, to, n, color, t0, dur }[]
+let coinParticles = [];       // { startX, startY, midX, midY, x, y, t0, dur, value, landed }
+window.coinPillScale = 1.0;
 let hint = null;              // { from, to, until }
 let won = false;
 let toast = { msg: '', color: '', start: 0, until: 0 };
@@ -195,6 +197,9 @@ function startLevel(i) {
   tubes = makeLevel(i);
   selected = -1; history = []; extraTubes = 0;
   anims = []; hint = null; won = false;
+  coinParticles = [];
+  window.visualCoins = undefined;
+  window.coinPillScale = 1.0;
   tubeLifts = new Array(tubes.length).fill(0);
   kick();
 }
@@ -203,6 +208,9 @@ function startZoomTransition(fromIdx, toIdx) {
   selected = -1;
   anims = [];
   won = false;
+  coinParticles = [];
+  window.visualCoins = undefined;
+  window.coinPillScale = 1.0;
   transition = {
     t0: performance.now(),
     dur: 2800, // 2.8 saniyelik sinematik geçiş
@@ -429,17 +437,76 @@ function finishAnimations(now) {
 function win() {
   if (won) return;
   won = true;
+  
+  // Görsel kasa durumunu başlat (animasyon sırasında kademeli artacak)
+  window.visualCoins = S.coins;
+  window.coinPillScale = 1.0;
+  
   S.coins += WIN_COINS;
   S.solvedCount++;
-  
-  // Çözülen şişelerin son halini kalıcı veri olarak sakla
   S.solvedStates[S.levelIndex] = JSON.parse(JSON.stringify(tubes));
-  
   save();
   if (window.Leaderboard) window.Leaderboard.recordScore(S.solvedCount);
   
-  // 400 milisaniye sonra bir sonraki bölüme geçiş animasyonunu otomatik başlat
-  setTimeout(nextLevel, 400);
+  // Altın fırlatma koordinatları için konum bilgilerini al
+  const L = layout();
+  const targetX = L.coinPill.x + L.coinPill.h * 0.5 + 15;
+  const targetY = L.coinPill.y + L.coinPill.h / 2;
+  
+  // Çözülen (dolu) şişeleri bul
+  const fullTubes = tubes.map((t, idx) => ({ t, idx })).filter(item => item.t.length === CAP);
+  const numCoinsPerTube = 3;
+  const totalCoinsToSpawn = Math.max(1, fullTubes.length * numCoinsPerTube);
+  
+  // Her bir altın parçacığının değeri
+  const baseVal = Math.floor(WIN_COINS / totalCoinsToSpawn);
+  let remainder = WIN_COINS - (baseVal * totalCoinsToSpawn);
+  
+  coinParticles = [];
+  const now = performance.now();
+  let coinId = 0;
+  
+  fullTubes.forEach((item) => {
+    const rect = L.rects[item.idx];
+    const startX = rect.x + rect.w / 2;
+    
+    // Altınların en üstteki sıvının elips kapağının (yuvarlak alanın) ortasından çıkması için Y hesabı
+    const wall = rect.w * 0.085;
+    const ibot = rect.y + rect.h - wall;
+    const neck = rect.h * 0.11;
+    const itop = rect.y + neck;
+    const segH = (ibot - itop) / CAP;
+    const startY = ibot - item.t.length * segH;
+    
+    for (let k = 0; k < numCoinsPerTube; k++) {
+      const delay = k * 120 + Math.random() * 40; // fırlatma gecikmesi (staggered)
+      const dur = 600 + Math.random() * 150;      // 600-750ms uçuş süresi
+      
+      // Kavisli Bezier yolu için kontrol noktası (yukarı doğru yay çizer)
+      const midX = (startX + targetX) / 2 + (Math.random() - 0.5) * 160;
+      const midY = Math.min(startY, targetY) - 80 - Math.random() * 100;
+      
+      // Artan küsurat değerlerini ilk birkaç sikkeye dağıt
+      const val = baseVal + (remainder > 0 ? 1 : 0);
+      if (remainder > 0) remainder--;
+      
+      coinParticles.push({
+        id: coinId++,
+        startX,
+        startY,
+        midX,
+        midY,
+        x: startX,
+        y: startY,
+        t0: now + delay,
+        dur,
+        value: val,
+        landed: false,
+      });
+    }
+  });
+  
+  kick();
 }
 
 function nextLevel() {
@@ -684,15 +751,23 @@ function drawLiquidBand(x, w, top, height, ci, sprinkleKey, angle) {
 function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
   if (height < 10 || (ci !== 3 && ci !== 6)) return;
 
-  const count = Math.max(6, Math.min(11, Math.floor((w * height) / 360)));
-  const seed = (ci + 1) * 977 + sprinkleKey * 131 + Math.floor(top * 0.17) + Math.floor(height * 0.29);
+  let count = Math.max(6, Math.min(11, Math.floor((w * height) / 360)));
+  if (ci === 6) {
+    count = Math.round(count * 1.55); // Kırmızıda sayı artırıldı
+  }
+
+  // Tıklayınca zıplamaması için koordinatlardan (top, height) bağımsız sabit seed
+  const seed = (ci + 1) * 977 + sprinkleKey * 131;
   const time = last * 0.001;
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, top, w, height);
   ctx.clip();
-  ctx.strokeStyle = '#fff7e8';
-  ctx.fillStyle = '#fff7e8';
+  
+  // Kırmızı için daha parlak saf beyaz, sarı için krem beyazı
+  const pColor = ci === 6 ? '#ffffff' : '#fff7e8';
+  ctx.strokeStyle = pColor;
+  ctx.fillStyle = pColor;
   ctx.lineCap = 'round';
   ctx.lineWidth = Math.max(1, w * 0.025);
 
@@ -709,7 +784,9 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
     const sy = top + height * (0.2 + fy * 0.6) + driftY;
     const len = Math.max(2.2, w * (0.055 + fv * 0.055));
     const twinkle = 0.22 + 0.42 * (0.5 + 0.5 * Math.sin(time * (1.5 + fv * 1.4) + seed + i * 1.7));
-    ctx.globalAlpha = (ci === 3 ? 0.34 : 0.29) * twinkle;
+    
+    // Kırmızı partiküllerin opaklığı (parlaklığı) artırıldı
+    ctx.globalAlpha = (ci === 6 ? 0.49 : 0.34) * twinkle;
 
     if (fv < 0.34) {
       ctx.beginPath();
@@ -827,18 +904,28 @@ function drawCoin(x, y, r) {
 }
 
 function drawCoinPill(P) {
+  const scale = window.coinPillScale || 1.0;
+  ctx.save();
+  if (scale !== 1.0) {
+    const cx = P.x + P.w / 2;
+    const cy = P.y + P.h / 2;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
+  }
+
   roundRectPath(P.x, P.y, P.w, P.h, P.h / 2);
   ctx.fillStyle = 'rgba(12,10,32,0.6)';
   ctx.fill();
   ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.stroke();
 
   ctx.fillStyle = THEME.text;
+  const coinText = String(window.visualCoins !== undefined ? window.visualCoins : S.coins);
   ctx.font = `800 ${Math.floor(P.h * 0.44)}px 'Segoe UI', sans-serif`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
   const cr = P.h * 0.34;
-  const coinText = String(S.coins);
   const gap = P.h * 0.18;
   const mainW = P.w - P.h;
   const groupW = cr * 2 + gap + ctx.measureText(coinText).width;
@@ -856,6 +943,8 @@ function drawCoinPill(P) {
   ctx.moveTo(px - pr * 0.5, py); ctx.lineTo(px + pr * 0.5, py);
   ctx.moveTo(px, py - pr * 0.5); ctx.lineTo(px, py + pr * 0.5);
   ctx.stroke();
+  
+  ctx.restore();
 }
 
 const RELOAD_PATH_1 = 'M61.977,17.156L48.277,30.855c-0.789,0.79-2.074,0.79-2.866,0l-0.197-0.202V20.568c-16.543,1.156-29.65,14.975-29.65,31.806c0,11.82,6.487,22.617,16.937,28.175c2.631,1.402,3.631,4.671,2.233,7.31c-1.403,2.635-4.671,3.634-7.306,2.231c-13.983-7.44-22.67-21.889-22.67-37.716c0-22.792,17.953-41.47,40.457-42.641V0.792l0.197-0.199c0.792-0.79,2.077-0.79,2.866,0l13.699,13.696C62.771,15.083,62.771,16.369,61.977,17.156z';
@@ -1158,17 +1247,11 @@ function draw(now) {
 
   drawBottomBar(L);
 
-  // zafer katmanı
-  if (won) {
-    ctx.fillStyle = 'rgba(6,8,24,0.45)';
-    ctx.fillRect(0, 0, W, H);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = THEME.win;
-    ctx.font = `900 ${Math.floor(Math.min(W * 0.1, 44))}px 'Segoe UI', sans-serif`;
-    ctx.fillText('SEVİYE TAMAM', W / 2, H * 0.45);
-    ctx.fillStyle = THEME.accent;
-    ctx.font = `800 ${Math.floor(Math.min(W * 0.05, 22))}px 'Segoe UI', sans-serif`;
-    ctx.fillText('+' + WIN_COINS + ' altın', W / 2, H * 0.45 + 44);
+  // Sikkeleri çiz
+  for (const p of coinParticles) {
+    if (now >= p.t0) {
+      drawCoin(p.x, p.y, Math.min(9.5, W * 0.023));
+    }
   }
 
   // toast
@@ -1190,12 +1273,55 @@ let won_btn = null;
 // Bir şey hareket etmiyorsa (animasyon / parçacık / toast / ipucu / zafer)
 // döngü durur; tek kare çizilip beklenir. Girişte kick() ile yeniden başlar.
 function animating(now) {
-  return anims.length > 0 || transition !== null || hasAnimatedSprinkles() || won || toast.until > now || (hint && hint.until > now);
+  return anims.length > 0 || transition !== null || hasAnimatedSprinkles() || won || toast.until > now || (hint && hint.until > now) || coinParticles.length > 0;
 }
 function loop(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
   last = now;
   if (anims.some(a => now - a.t0 >= a.dur)) finishAnimations(now);
+
+  // Sikke parçacıklarını güncelle ve hedefe uçur
+  if (coinParticles.length > 0) {
+    const L = layout();
+    const targetX = L.coinPill.x + L.coinPill.h * 0.5 + 15;
+    const targetY = L.coinPill.y + L.coinPill.h / 2;
+    let allLanded = true;
+    
+    for (const p of coinParticles) {
+      if (now < p.t0) {
+        allLanded = false; // henüz uçuşa başlamadı
+        continue;
+      }
+      const t = Math.min(1, (now - p.t0) / p.dur);
+      if (t < 1.0) {
+        allLanded = false;
+        // Bezier eğrisi ile kavisli uçuş
+        const t1 = 1 - t;
+        p.x = t1 * t1 * p.startX + 2 * t1 * t * p.midX + t * t * targetX;
+        p.y = t1 * t1 * p.startY + 2 * t1 * t * p.midY + t * t * targetY;
+      } else {
+        if (!p.landed) {
+          p.landed = true;
+          // Kasaya ulaştı, skoru görsel olarak artır ve kasayı büyüt (pop efekti)
+          window.visualCoins = Math.min(S.coins, (window.visualCoins || 0) + p.value);
+          window.coinPillScale = 1.16;
+        }
+      }
+    }
+    
+    // Kasa ölçeğini yavaşça normale döndür (sönümle)
+    if (window.coinPillScale > 1.0) {
+      window.coinPillScale -= dt * 1.8;
+      if (window.coinPillScale < 1.0) window.coinPillScale = 1.0;
+    }
+    
+    if (allLanded) {
+      coinParticles = [];
+      window.visualCoins = undefined;
+      window.coinPillScale = 1.0;
+      nextLevel();
+    }
+  }
 
   let liftsChanged = false;
   for (let i = 0; i < tubes.length; i++) {
