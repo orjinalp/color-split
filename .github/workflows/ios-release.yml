@@ -3,6 +3,13 @@ name: Color Split iOS Release
 on:
   workflow_dispatch:
     inputs:
+      lane:
+        description: release = build + TestFlight + metadata; metadata = only store text/screenshots
+        type: choice
+        options:
+          - release
+          - metadata
+        default: release
       app_version:
         description: App Store version
         required: true
@@ -41,6 +48,7 @@ jobs:
           working-directory: ios-app
 
       - name: Install XcodeGen
+        if: ${{ inputs.lane == 'release' }}
         run: brew install xcodegen
 
       - name: Prepare App Store Connect API key
@@ -62,6 +70,7 @@ jobs:
           echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Import distribution certificate
+        if: ${{ inputs.lane == 'release' }}
         shell: bash
         env:
           IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
@@ -96,9 +105,10 @@ jobs:
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
       - name: Sync web game and generate Xcode project
+        if: ${{ inputs.lane == 'release' }}
         run: |
           bash ./sync-web.sh
           xcodegen generate
 
-      - name: Build and upload Color Split
-        run: bundle exec fastlane ios release
+      - name: Run Color Split Fastlane lane
+        run: bundle exec fastlane ios ${{ inputs.lane }}

@@ -1,5 +1,26 @@
 require "fileutils"
 require "shellwords"
+require "deliver/upload_metadata"
+
+# fastlane 2.237.0, ilk App Store sürümünde henüz review-detail kaydı yoksa
+# ek dosya kontrolünde `No data` hatası veriyor. Review eki kullanmadığımız için
+# yalnızca bu dar durumu atla; diğer bütün metadata hatalarını yine yükselt.
+module ColorSplitFirstVersionReviewAttachmentWorkaround
+  private
+
+  def review_attachment_file(version)
+    super
+  rescue RuntimeError => error
+    raise unless error.message.strip == "No data" && !options[:app_review_attachment_file]
+
+    FastlaneCore::UI.important(
+      "First App Store version has no review-detail record yet; " \
+      "skipping the empty review attachment check."
+    )
+  end
+end
+
+Deliver::UploadMetadata.prepend(ColorSplitFirstVersionReviewAttachmentWorkaround)
 
 opt_out_usage
 default_platform(:ios)
