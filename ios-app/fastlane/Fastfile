@@ -1,0 +1,159 @@
+require "fileutils"
+require "shellwords"
+
+opt_out_usage
+default_platform(:ios)
+
+APP_ID = "com.orjinalp.colorsplit"
+TEAM_ID = "2CTYTPF2MA"
+FASTLANE_PATH = __dir__
+REPO_ROOT = File.expand_path("../..", FASTLANE_PATH)
+METADATA_PATH = File.join(FASTLANE_PATH, "metadata")
+SCREENSHOTS_PATH = File.join(FASTLANE_PATH, "screenshots")
+
+def screenshot_dimensions(path)
+  output = `/usr/bin/sips -g pixelWidth -g pixelHeight #{path.shellescape} 2>/dev/null`
+  width = output[/pixelWidth:\s*(\d+)/, 1]&.to_i
+  height = output[/pixelHeight:\s*(\d+)/, 1]&.to_i
+
+  unless width && height
+    FastlaneCore::UI.user_error!("Could not read App Store screenshot dimensions: #{path}")
+  end
+
+  [width, height]
+end
+
+def prepare_store_screenshots
+  target_dir = File.join(SCREENSHOTS_PATH, "tr")
+
+  screenshots = {
+    "01-main-6.5.png" => { target: "01-main-iphone-6.5.png", width: 1242, height: 2688 },
+    "02-menu-6.5.png" => { target: "02-menu-iphone-6.5.png", width: 1242, height: 2688 },
+    "01-main-6.9.png" => { target: "03-main-iphone-6.9.png", width: 1290, height: 2796 },
+    "02-menu-6.9.png" => { target: "04-menu-iphone-6.9.png", width: 1290, height: 2796 },
+    "ipad-01-main.png" => { target: "iPad Pro (12.9-inch) (3rd generation)-01-main.png", width: 2048, height: 2732 },
+    "ipad-02-menu.png" => { target: "iPad Pro (12.9-inch) (3rd generation)-02-menu.png", width: 2048, height: 2732 }
+  }
+
+  copy_jobs = screenshots.map do |source, spec|
+    source_path = File.join(REPO_ROOT, "app-store", "screenshots", source)
+    FastlaneCore::UI.user_error!("Missing App Store screenshot: #{source_path}") unless File.exist?(source_path)
+
+    expected = [spec[:width], spec[:height]]
+    actual = screenshot_dimensions(source_path)
+    unless actual == expected
+      FastlaneCore::UI.user_error!(
+        "Invalid App Store screenshot dimensions for #{source}: expected #{expected.join('x')}, got #{actual.join('x')}"
+      )
+    end
+
+    [source_path, File.join(target_dir, spec[:target])]
+  end
+
+  FileUtils.rm_rf(target_dir)
+  FileUtils.mkdir_p(target_dir)
+  copy_jobs.each do |source_path, target_path|
+    FileUtils.cp(source_path, target_path)
+  end
+end
+
+platform :ios do
+  private_lane :asc_api_key do
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: ENV.fetch("ASC_KEY_PATH"),
+      in_house: false
+    )
+  end
+
+  private_lane :upload_store_listing do |options|
+    prepare_store_screenshots
+
+    found = Dir[File.join(SCREENSHOTS_PATH, "**", "*.png")].sort
+    UI.message("TEŞHİS — hazırlanan ekran görüntüsü sayısı: #{found.length}")
+    found.each { |f| UI.message("  #{f.sub(SCREENSHOTS_PATH + '/', '')}") }
+
+    upload_to_app_store(
+      api_key: options[:api_key],
+      app_identifier: APP_ID,
+      app_version: ENV["APP_VERSION"] || "1.0.0",
+      metadata_path: METADATA_PATH,
+      screenshots_path: SCREENSHOTS_PATH,
+      skip_binary_upload: true,
+      submit_for_review: false,
+      force: true,
+      overwrite_screenshots: true,
+      precheck_include_in_app_purchases: false,
+      run_precheck_before_submit: false
+    )
+  end
+
+  desc "App Store listing metadata, screenshots and copyright upload"
+  lane :metadata do
+    upload_store_listing(api_key: asc_api_key)
+  end
+
+  desc "App Privacy answers upload (requires Apple ID owner/admin; API key is not supported)"
+  lane :privacy do
+    UI.user_error!(
+      "Color Split uses Google Mobile Ads. Complete App Privacy manually in " \
+      "App Store Connect so the answers match the live AdMob configuration."
+    )
+  end
+
+  desc "Derle, imzala, TestFlight'a yükle ve App Store listelemesini güncelle"
+  lane :release do
+    # App Store Connect API anahtarı — Mac/parola/2FA gerektirmez.
+    # Anahtar dosyası workflow'un "API anahtarını hazırla" adımında yazılır.
+    api_key = asc_api_key
+
+    build_number = ENV["BUILD_NUMBER"] || "1"
+    app_version = ENV["APP_VERSION"] || "1.0.0"
+
+    # App Store provisioning profile'ını mevcut Apple Distribution sertifikasıyla
+    # üret/yenile. CI keychain'ine .p12 workflow adımında import edilir.
+    sigh(
+      api_key: api_key,
+      app_identifier: APP_ID,
+      platform: "ios",
+      provisioning_name: "Color Split App Store",
+      force: true
+    )
+    profile_name = Actions.lane_context[SharedValues::SIGH_NAME] ||
+                   ENV["sigh_#{APP_ID}_appstore_profile-name"] ||
+                   "Color Split App Store"
+
+    build_app(
+      project: "ColorSplit.xcodeproj",
+      scheme: "ColorSplit",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build",
+      output_name: "ColorSplit.ipa",
+      xcargs: [
+        "-allowProvisioningUpdates",
+        "DEVELOPMENT_TEAM=#{TEAM_ID}",
+        "CODE_SIGN_STYLE=Manual",
+        "CODE_SIGN_IDENTITY=Apple Distribution",
+        "PROVISIONING_PROFILE_SPECIFIER=#{profile_name}",
+        "MARKETING_VERSION=#{app_version}",
+        "CURRENT_PROJECT_VERSION=#{build_number}"
+      ].shelljoin,
+      export_options: {
+        signingStyle: "manual",
+        teamID: TEAM_ID,
+        provisioningProfiles: { APP_ID => profile_name }
+      }
+    )
+
+    # Binary'yi App Store Connect'e yükle (TestFlight'ta işlenir).
+    # Listeleme/gönderim tarayıcıdan tamamlanır.
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+
+    upload_store_listing(api_key: api_key)
+  end
+end

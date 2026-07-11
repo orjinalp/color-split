@@ -1,0 +1,17 @@
+Color Split, renkli sıvıları doğru şişelerde bir araya getirdiğin rahatlatıcı bir sıralama bulmacasıdır.
+
+Bir şişeye dokun, ardından sıvıyı dökmek istediğin şişeyi seç. Rengi yalnızca boş bir şişeye veya üstünde aynı renk bulunan bir şişeye dökebilirsin. Tüm şişeler tek renge ulaştığında bölüm tamamlanır.
+
+ÖZELLİKLER
+• Kolay öğrenilen dokunmatik oynanış
+• Giderek zorlaşan 20 çözülebilir bölüm
+• Geçerli hamleyi uygulayan ipucu
+• Son hamleyi geri alma
+• Zorlandığında boş şişe ekleme
+• Bölüm ödülleri ve altın sistemi
+• Haftalık yerel liderlik tablosu
+• Akıcı dökme animasyonları ve canlı renkler
+• Oyun ilerlemesini cihazda saklama
+• Temel oyun için çevrimdışı destek
+
+Color Split ücretsizdir. Ödüllü reklamlar isteğe bağlı altın bonusu sunabilir; reklamların yüklenmesi için internet bağlantısı gerekir. Oyun içi altın yalnızca oyun içinde kullanılır ve gerçek para değeri taşımaz.

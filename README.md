@@ -15,7 +15,7 @@ Canvas tabanlı bir renk sıralama bulmacası. Sıvıları doğru şişelere dö
 ## Özellikler
 
 - Full-canvas oyun; düz, sade tasarım
-- 10 bölüm; deterministik üretim + dahili çözücü (çözülebilirlik garantisi ve
+- 20 bölüm; deterministik üretim + dahili çözücü (çözülebilirlik garantisi ve
   ipucu için)
 - Talep-üzerine render (boşta çizim yapmaz)
 - Hamburger menü: Ben, Liderlik Tablosu, Ayarlar, Nasıl Oynanır, Gizlilik
@@ -39,18 +39,13 @@ python -m http.server 8000
 
 ```
 .
-├── index.html          # sayfa iskeleti + menü DOM
-├── game.js             # oyun mantığı ve canvas çizimi
-├── menu.js             # hamburger menü + sayfalar + liderlik UI
-├── leaderboard.js      # liderlik servisi (yerel simülasyon)
-├── style.css           # sayfa ve menü stilleri
-├── site.webmanifest    # PWA manifesti
-├── favicon.ico, icons/ # ikonlar
-└── docs/               # GitHub Pages yayın kopyası (kök ile aynı içerik)
+├── docs/               # Web oyunu ve GitHub Pages yayın kaynağı
+├── ios-app/            # WKWebView tabanlı iPhone/iPad uygulaması
+└── app-store/          # Mağaza metinleri, ikon ve ekran görüntüleri
 ```
 
 ## Yayın (GitHub Pages)
 
 Yayın dosyaları `docs/` klasöründedir: **Settings → Pages → Branch: main /
-folder: `/docs`**. Web oyununu değiştirdiğinde kökteki dosyaları `docs/`'a da
-kopyala (ikisi aynı olmalı).
+folder: `/docs`**. iOS paketindeki web kopyasını yenilemek için
+`ios-app/sync-web.sh` çalıştır.

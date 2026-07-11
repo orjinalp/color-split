@@ -1,0 +1,202 @@
+import GoogleMobileAds
+import UIKit
+import WebKit
+
+/// Hosts the Color Split web game inside a full-screen WKWebView.
+/// All game assets are bundled locally (see the "Web" folder reference),
+/// so the core game can run without a network connection.
+final class GameViewController: UIViewController, WKNavigationDelegate, WKScriptMessageHandler, FullScreenContentDelegate {
+
+    private var webView: WKWebView!
+    private var bannerView: BannerView!
+    private var rewardedAd: RewardedAd?
+    private var isLoadingRewardedAd = false
+    private var isShowingRewardedAd = false
+    private var didEarnRewardForCurrentAd = false
+
+    private enum AdMob {
+        static let rewardedAdUnitID = "ca-app-pub-9218266514966883/7344921948"
+        static let bannerAdUnitID = "ca-app-pub-9218266514966883/8264654318"
+    }
+
+    /// Brand background (#141a38) — matches the web app's theme-color so there
+    /// is no white flash before the canvas paints.
+    private let brandColor = UIColor(red: 0x14 / 255.0,
+                                     green: 0x1a / 255.0,
+                                     blue: 0x38 / 255.0,
+                                     alpha: 1.0)
+
+    /// Backdrop behind the status bar (top of the game's background gradient,
+    /// #141a38) so it blends seamlessly with the canvas just below.
+    private let headerColor = UIColor(red: 0x14 / 255.0,
+                                      green: 0x1a / 255.0,
+                                      blue: 0x38 / 255.0,
+                                      alpha: 1.0)
+
+    override func loadView() {
+        let config = WKWebViewConfiguration()
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = []
+        // Persist localStorage (the game's save data) across launches.
+        config.websiteDataStore = .default()
+        config.userContentController.add(self, name: "colorSplitRewardedAd")
+
+        webView = WKWebView(frame: .zero, configuration: config)
+        webView.navigationDelegate = self
+        webView.isOpaque = false
+        webView.backgroundColor = brandColor
+        webView.scrollView.backgroundColor = brandColor
+
+        // The game manages its own touch handling on a full-screen canvas,
+        // so disable native scrolling, bouncing and inset adjustment.
+        webView.scrollView.bounces = false
+        webView.scrollView.isScrollEnabled = false
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.scrollView.maximumZoomScale = 1.0
+        webView.scrollView.minimumZoomScale = 1.0
+
+        // Host the web view in a container whose top edge is the status-bar
+        // backdrop. Pinning the web view to the safe-area top keeps the game's
+        // header below the clock / Wi-Fi / battery instead of under them.
+        let root = UIView()
+        root.backgroundColor = headerColor
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(webView)
+        bannerView = BannerView(adSize: AdSizeBanner)
+        bannerView.adUnitID = AdMob.bannerAdUnitID
+        bannerView.rootViewController = self
+        bannerView.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(bannerView)
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            webView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            bannerView.bottomAnchor.constraint(equalTo: root.safeAreaLayoutGuide.bottomAnchor),
+            bannerView.centerXAnchor.constraint(equalTo: root.centerXAnchor)
+        ])
+        view = root
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = headerColor
+        loadGame()
+        bannerView.load(Request())
+        Task {
+            await loadRewardedAd()
+        }
+    }
+
+    private func loadGame() {
+        guard let indexURL = Bundle.main.url(forResource: "index",
+                                             withExtension: "html",
+                                             subdirectory: "Web") else {
+            assertionFailure("Bundled web game not found")
+            return
+        }
+        // Grant read access to the whole Web directory so game.js, style.css,
+        // icons and the manifest all resolve relative to index.html.
+        let webRoot = indexURL.deletingLastPathComponent()
+        webView.loadFileURL(indexURL, allowingReadAccessTo: webRoot)
+    }
+
+    private func loadRewardedAd() async {
+        guard !isLoadingRewardedAd, rewardedAd == nil else { return }
+
+        isLoadingRewardedAd = true
+        do {
+            let ad = try await RewardedAd.load(with: AdMob.rewardedAdUnitID, request: Request())
+            ad.fullScreenContentDelegate = self
+            rewardedAd = ad
+        } catch {
+            #if DEBUG
+            print("AdMob rewarded ad failed to load: \(error.localizedDescription)")
+            #endif
+        }
+        isLoadingRewardedAd = false
+    }
+
+    private func showRewardedAdForCoinBonus() {
+        guard !isShowingRewardedAd else { return }
+
+        guard let ad = rewardedAd else {
+            sendRewardedAdResult(success: false, reason: "notReady")
+            Task {
+                await loadRewardedAd()
+            }
+            return
+        }
+
+        rewardedAd = nil
+        isShowingRewardedAd = true
+        didEarnRewardForCurrentAd = false
+        ad.present(from: self) { [weak self] in
+            guard let self else { return }
+
+            self.didEarnRewardForCurrentAd = true
+            self.sendRewardedAdResult(success: true, reason: "earned")
+        }
+    }
+
+    private func sendRewardedAdResult(success: Bool, reason: String) {
+        let payload: [Any] = [success, reason]
+        guard
+            let data = try? JSONSerialization.data(withJSONObject: payload),
+            let json = String(data: data, encoding: .utf8)
+        else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.webView.evaluateJavaScript(
+                "window.colorSplitRewardedAdResult && window.colorSplitRewardedAdResult.apply(window, \(json));"
+            )
+        }
+    }
+
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        guard message.name == "colorSplitRewardedAd" else { return }
+        showRewardedAdForCoinBonus()
+    }
+
+    func ad(_ ad: FullScreenPresentingAd,
+            didFailToPresentFullScreenContentWithError error: Error) {
+        #if DEBUG
+        print("AdMob rewarded ad failed to present: \(error.localizedDescription)")
+        #endif
+        isShowingRewardedAd = false
+        didEarnRewardForCurrentAd = false
+        sendRewardedAdResult(success: false, reason: "failed")
+        Task {
+            await loadRewardedAd()
+        }
+    }
+
+    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
+        if !didEarnRewardForCurrentAd {
+            sendRewardedAdResult(success: false, reason: "dismissed")
+        }
+
+        isShowingRewardedAd = false
+        didEarnRewardForCurrentAd = false
+        Task {
+            await loadRewardedAd()
+        }
+    }
+
+    deinit {
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: "colorSplitRewardedAd")
+    }
+
+    // Keep the system status bar visible (clock, Wi-Fi, battery, cellular).
+    // White glyphs read well on the dark backdrop; the web view is pinned below
+    // the safe-area top so the game header never sits under the status bar.
+    override var prefersStatusBarHidden: Bool { false }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var prefersHomeIndicatorAutoHidden: Bool { true }
+
+    // The game is designed portrait-first; lock to portrait.
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        .portrait
+    }
+}
