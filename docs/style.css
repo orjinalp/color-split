@@ -33,9 +33,9 @@ html, body {
   z-index: 20;
   -webkit-tap-highlight-color: transparent;
 }
-#menuBtn span {
-  display: block; width: 20px; height: 2px; border-radius: 2px;
-  background: #f5f7ff;
+#menuBtn svg {
+  display: block;
+  color: #f5f7ff;
 }
 #menuBtn:active { opacity: 0.7; }
 
@@ -223,3 +223,5 @@ html, body {
   width: 1em; height: 1em; stroke-width: 2.1;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+

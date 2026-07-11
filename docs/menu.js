@@ -7,7 +7,7 @@
   const APP_VERSION = '1.0.0';
 
   const overlay = document.getElementById('menuOverlay');
-  const body    = document.getElementById('menuBody');
+  const body = document.getElementById('menuBody');
   const titleEl = document.getElementById('menuTitle');
   const backBtn = document.getElementById('menuBack');
   const closeBtn = document.getElementById('menuClose');
@@ -36,14 +36,14 @@
 
   // ─── Kök menü ───────────────────────────────────────────────────────────────
   const ROOT_ITEMS = [
-    { key: 'profile',     icon: 'user', label: 'Ben' },
+    { key: 'profile', icon: 'user', label: 'Ben' },
     { key: 'leaderboard', icon: 'trophy', label: 'Liderlik Tablosu' },
-    { key: 'settings',    icon: 'settings', label: 'Ayarlar' },
-    { key: 'howto',       icon: 'help', label: 'Nasıl Oynanır' },
-    { key: 'privacy',     icon: 'lock', label: 'Gizlilik Politikası' },
-    { key: 'terms',       icon: 'file', label: 'Kullanım Koşulları' },
-    { key: 'support',     icon: 'mail', label: 'Destek & İletişim' },
-    { key: 'about',       icon: 'info', label: 'Hakkında' },
+    { key: 'settings', icon: 'settings', label: 'Ayarlar' },
+    { key: 'howto', icon: 'help', label: 'Nasıl Oynanır' },
+    { key: 'privacy', icon: 'lock', label: 'Gizlilik Politikası' },
+    { key: 'terms', icon: 'file', label: 'Kullanım Koşulları' },
+    { key: 'support', icon: 'mail', label: 'Destek & İletişim' },
+    { key: 'about', icon: 'info', label: 'Hakkında' },
   ];
 
   const ICONS = {
@@ -86,9 +86,9 @@
     titleEl.textContent = label;
     backBtn.classList.remove('hidden');
     body.scrollTop = 0;
-    if (key === 'profile')     return renderProfile();
+    if (key === 'profile') return renderProfile();
     if (key === 'leaderboard') return renderLeaderboard();
-    if (key === 'settings')    return renderSettings();
+    if (key === 'settings') return renderSettings();
     body.innerHTML = PAGES[key] || '<div class="page"><p>Bulunamadı.</p></div>';
   }
 

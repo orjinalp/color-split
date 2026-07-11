@@ -44,6 +44,16 @@ const LEVELS = [
   { colors: 7, empty: 2 },     //  8
   { colors: 7, empty: 2 },     //  9
   { colors: 8, empty: 2 },     // 10
+  { colors: 8, empty: 2 },     // 11
+  { colors: 8, empty: 3 },     // 12
+  { colors: 9, empty: 2 },     // 13
+  { colors: 9, empty: 3 },     // 14
+  { colors: 9, empty: 3 },     // 15
+  { colors: 10, empty: 2 },    // 16
+  { colors: 10, empty: 3 },    // 17
+  { colors: 10, empty: 3 },    // 18
+  { colors: 10, empty: 3 },    // 19
+  { colors: 10, empty: 3 },    // 20
 ];
 
 // Güç-artırıcı bedelleri
@@ -87,20 +97,64 @@ function canonical(ts) {
   return ts.map(t => t.join(',')).sort().join('|');
 }
 // Çözüm bulursa hamle dizisi ([kaynak, hedef, adet, renk]), bulamazsa null döner.
-function solve(startTubes, budget) {
-  // BFS kuyruğu: her eleman { state, path } içerir
-  const queue = [{ state: startTubes.map(t => t.slice()), path: [] }];
+// Hızlı derinlik öncelikli çözücü (Level üretimi ve hızlı doğrulama için)
+function solveDFS(startTubes, budget) {
+  const state = startTubes.map(t => t.slice());
+  const visited = new Set();
+  const path = [];
+  let nodes = 0;
+
+  function dfs(depth) {
+    if (isSolved(state)) return true;
+    if (nodes++ > budget || depth > 300) return false;
+    const key = canonical(state);
+    if (visited.has(key)) return false;
+    visited.add(key);
+
+    for (let i = 0; i < state.length; i++) {
+      if (!state[i].length) continue;
+      const tb = topBlock(state[i]);
+      const wholeUniform = state[i].length === tb.count && tb.count === state[i].length;
+      for (let j = 0; j < state.length; j++) {
+        if (i === j) continue;
+        const n = canPour(state[i], state[j]);
+        if (!n) continue;
+        if (state[j].length === 0 && wholeUniform) continue;
+        
+        for (let k = 0; k < n; k++) state[j].push(state[i].pop());
+        path.push([i, j, n, tb.color]);
+        if (dfs(depth + 1)) return true;
+        path.pop();
+        for (let k = 0; k < n; k++) state[i].push(state[j].pop());
+      }
+    }
+    return false;
+  }
+  return dfs(0) ? path.slice() : null;
+}
+
+// Genişlik öncelikli en kısa yol çözücüsü (Hamle ipucu ve otomatik çözüm için)
+function solveBFS(startTubes, budget) {
+  const queue = [{ state: startTubes.map(t => t.slice()), parent: null, move: null }];
   const visited = new Set();
   visited.add(canonical(startTubes));
   
+  let head = 0;
   let nodes = 0;
-  while (queue.length > 0) {
-    const curr = queue.shift();
+  while (head < queue.length) {
+    const curr = queue[head++];
     const currState = curr.state;
     
     // Çözüme ulaşıldıysa bu yol kesinlikle en kısa (en optimal) yoldur!
     if (isSolved(currState)) {
-      return curr.path;
+      const path = [];
+      let p = curr;
+      while (p.parent !== null) {
+        path.push(p.move);
+        p = p.parent;
+      }
+      path.reverse();
+      return path;
     }
     
     if (nodes++ > budget) {
@@ -145,9 +199,7 @@ function solve(startTubes, budget) {
       const key = canonical(nextState);
       if (!visited.has(key)) {
         visited.add(key);
-        const nextPath = curr.path.slice();
-        nextPath.push([m.from, m.to, m.n, m.color]);
-        queue.push({ state: nextState, path: nextPath });
+        queue.push({ state: nextState, parent: curr, move: [m.from, m.to, m.n, m.color] });
       }
     }
   }
@@ -170,11 +222,11 @@ function dealTubes(rng, colors, empty) {
 function makeLevel(idx) {
   const cfg = LEVELS[idx];
   const base = (0x9e3779b1 ^ Math.imul(idx + 1, 2654435761)) >>> 0;
-  for (let attempt = 0; attempt < 500; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     const rng = mulberry32((base ^ Math.imul(attempt + 1, 0x85ebca6b)) >>> 0);
     const tubes = dealTubes(rng, cfg.colors, cfg.empty);
     if (isSolved(tubes)) continue;
-    if (solve(tubes, 120000)) return tubes;
+    if (solveDFS(tubes, 5000)) return tubes;
   }
   return dealTubes(mulberry32(base), cfg.colors, cfg.empty); // güvenli düşüş
 }
@@ -226,7 +278,8 @@ function showToast(msg, color, dur) {
 }
 
 function startLevel(i) {
-  tubes = makeLevel(i);
+  const baseTubes = levelTeaserCache[i] || makeLevel(i);
+  tubes = baseTubes.map(t => t.slice());
   selected = -1; history = []; extraTubes = 0;
   anims = []; hint = null; won = false;
   coinParticles = [];
@@ -253,13 +306,10 @@ function startZoomTransition(fromIdx, toIdx) {
 }
 
 function getCameraPose(t, fromIdx, toIdx) {
-  const fromCol = fromIdx % 3, fromRow = Math.floor(fromIdx / 3);
-  const toCol = toIdx % 3, toRow = Math.floor(toIdx / 3);
-  
-  const fromX = fromCol * W;
-  const fromY = fromRow * H;
-  const toX = toCol * W;
-  const toY = toRow * H;
+  const fromX = fromIdx * W;
+  const fromY = 0;
+  const toX = toIdx * W;
+  const toY = 0;
   
   let scale = 1.0;
   let tx = fromX;
@@ -317,7 +367,10 @@ function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
     }
   } else {
     if (!levelTeaserCache[i]) {
-      levelTeaserCache[i] = makeLevel(i);
+      const cfg = LEVELS[i];
+      const base = (0x9e3779b1 ^ Math.imul(i + 1, 2654435761)) >>> 0;
+      const rng = mulberry32(base);
+      levelTeaserCache[i] = dealTubes(rng, cfg.colors, cfg.empty);
     }
     cellTubes = levelTeaserCache[i];
   }
@@ -545,6 +598,9 @@ function win() {
 function nextLevel() {
   let ni = S.levelIndex + 1;
   if (ni >= LEVELS.length) { ni = 0; }
+  if (!levelTeaserCache[ni]) {
+    levelTeaserCache[ni] = makeLevel(ni);
+  }
   startZoomTransition(S.levelIndex, ni);
 }
 
@@ -575,7 +631,7 @@ function doUndo() {
 function doHint() {
   if (anims.length || won) return;
   if (S.coins < HINT_COST) return;
-  const sol = solve(tubes, 120000);
+  const sol = solveBFS(tubes, 30000);
   if (!sol || !sol.length) return;
   hint = { from: sol[0][0], to: sol[0][1], until: performance.now() + 2600 };
   S.coins -= HINT_COST; save();
@@ -1186,9 +1242,7 @@ function draw(now) {
     ctx.translate(-pose.tx - W / 2, -pose.ty - H / 2);
     
     for (let i = 0; i < LEVELS.length; i++) {
-      const r = Math.floor(i / 3);
-      const c = i % 3;
-      drawLevelGridCell(i, c * W, r * H, now, gridOpacity);
+      drawLevelGridCell(i, i * W, 0, now, gridOpacity);
     }
     ctx.restore();
 
@@ -1445,6 +1499,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 // ─── BAŞLAT ──────────────────────────────────────────────────────────────────
+levelTeaserCache[S.levelIndex] = makeLevel(S.levelIndex);
 startLevel(S.levelIndex);
 
 // ─── Geliştirici Hilesi (Developer Cheat Button) ──────────────────────────────
@@ -1452,7 +1507,7 @@ function cheatOneMoveLeft() {
   if (won || anims.length) return;
   
   // Mevcut durumdan çözümü bulmaya çalış
-  let path = solve(tubes, 120000);
+  let path = solveBFS(tubes, 30000);
   
   // Eğer çözülemez bir durumdaysak önce bölümü sıfırla, sonra çöz
   if (!path) {
@@ -1463,7 +1518,7 @@ function cheatOneMoveLeft() {
     anims = [];
     hint = null;
     tubeLifts = new Array(tubes.length).fill(0);
-    path = solve(tubes, 120000);
+    path = solveBFS(tubes, 30000);
   }
   
   if (path && path.length > 0) {
@@ -1493,7 +1548,7 @@ function doAutoSolveMove() {
   }
   
   // Mevcut durumdan çözümü bulmaya çalış
-  const path = solve(tubes, 120000);
+  const path = solveBFS(tubes, 30000);
   if (path && path.length > 0) {
     const nextMove = path[0];
     const from = nextMove[0];

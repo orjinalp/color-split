@@ -41,7 +41,7 @@ const Leaderboard = (() => {
   }
 
   function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
-  function save(o) { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {} }
+  function save(o) { try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { } }
 
   function record(now) {
     const { start, end } = periodBounds(now);

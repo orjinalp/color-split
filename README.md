@@ -1,7 +1,7 @@
 # Color Split
 
 Canvas tabanlı bir renk sıralama bulmacası. Sıvıları doğru şişelere dökerek her
-şişeyi tek renk yap. Tüm ilerleme `localStorage` ile cihazda saklanır.
+şişeyi tek renk yap. Tüm ilerleme cihazda saklanır.
 
 ## Nasıl oynanır
 
