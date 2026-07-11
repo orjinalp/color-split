@@ -1068,3 +1068,71 @@ window.addEventListener('keydown', (e) => {
 
 // ─── BAŞLAT ──────────────────────────────────────────────────────────────────
 startLevel(S.levelIndex);
+
+// ─── Geliştirici Hilesi (Developer Cheat Button) ──────────────────────────────
+function cheatOneMoveLeft() {
+  if (won || anims.length) return;
+  
+  // Mevcut durumdan çözümü bulmaya çalış
+  let path = solve(tubes, 120000);
+  
+  // Eğer çözülemez bir durumdaysak önce bölümü sıfırla, sonra çöz
+  if (!path) {
+    tubes = makeLevel(S.levelIndex);
+    selected = -1;
+    history = [];
+    extraTubes = 0;
+    anims = [];
+    hint = null;
+    tubeLifts = new Array(tubes.length).fill(0);
+    path = solve(tubes, 120000);
+  }
+  
+  if (path && path.length > 0) {
+    // Son 1 hamle hariç tüm hamleleri hemen uygula
+    const movesToApply = path.length - 1;
+    for (let i = 0; i < movesToApply; i++) {
+      const m = path[i];
+      const moveObj = { from: m[0], to: m[1], n: m[2] };
+      applyMove(tubes, moveObj);
+    }
+    // Geçmişi temizle
+    history = [];
+    selected = -1;
+    hint = null;
+    showToast('Son 1 hamle kaldı!', THEME.gold, 1500);
+    kick();
+  } else {
+    showToast('Zaten çözülmüş!', THEME.dim, 1500);
+  }
+}
+
+// Butonu dinamik olarak oluştur ve ekle
+const devBtn = document.createElement('button');
+devBtn.id = 'devSolveBtn';
+devBtn.textContent = 'Hile: Son Hamle';
+devBtn.style.cssText = `
+  position: fixed;
+  bottom: 120px;
+  right: 20px;
+  padding: 8px 14px;
+  background: rgba(229, 55, 156, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  touch-action: auto;
+  transition: opacity 0.15s;
+`;
+document.body.appendChild(devBtn);
+
+devBtn.addEventListener('click', cheatOneMoveLeft);
+devBtn.addEventListener('touchstart', (e) => {
+  e.stopPropagation(); // Canvas dokunma olayının tetiklenmesini engelle
+}, { passive: true });
+
