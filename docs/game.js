@@ -88,38 +88,70 @@ function canonical(ts) {
 }
 // Çözüm bulursa hamle dizisi ([kaynak, hedef, adet, renk]), bulamazsa null döner.
 function solve(startTubes, budget) {
-  const state = startTubes.map(t => t.slice());
+  // BFS kuyruğu: her eleman { state, path } içerir
+  const queue = [{ state: startTubes.map(t => t.slice()), path: [] }];
   const visited = new Set();
-  const path = [];
+  visited.add(canonical(startTubes));
+  
   let nodes = 0;
-
-  function dfs(depth) {
-    if (isSolved(state)) return true;
-    if (nodes++ > budget || depth > 400) return false;
-    const key = canonical(state);
-    if (visited.has(key)) return false;
-    visited.add(key);
-
-    for (let i = 0; i < state.length; i++) {
-      if (!state[i].length) continue;
-      const tb = topBlock(state[i]);
-      // Tek renk dolu bir şişeyi olduğu gibi boşa taşımak anlamsız → atla.
-      const wholeUniform = state[i].length === tb.count && tb.count === state[i].length;
-      for (let j = 0; j < state.length; j++) {
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    const currState = curr.state;
+    
+    // Çözüme ulaşıldıysa bu yol kesinlikle en kısa (en optimal) yoldur!
+    if (isSolved(currState)) {
+      return curr.path;
+    }
+    
+    if (nodes++ > budget) {
+      break;
+    }
+    
+    // Geçerli tüm hamleleri topla
+    const moves = [];
+    for (let i = 0; i < currState.length; i++) {
+      if (!currState[i].length) continue;
+      const tb = topBlock(currState[i]);
+      const wholeUniform = currState[i].length === tb.count && tb.count === currState[i].length;
+      for (let j = 0; j < currState.length; j++) {
         if (i === j) continue;
-        const n = canPour(state[i], state[j]);
+        const n = canPour(currState[i], currState[j]);
         if (!n) continue;
-        if (state[j].length === 0 && wholeUniform) continue;   // döngü budaması
-        for (let k = 0; k < n; k++) state[j].push(state[i].pop());
-        path.push([i, j, n, tb.color]);
-        if (dfs(depth + 1)) return true;
-        path.pop();
-        for (let k = 0; k < n; k++) state[i].push(state[j].pop());
+        if (currState[j].length === 0 && wholeUniform) continue; // gereksiz boşa taşıma budaması
+        
+        let priority = 0;
+        if (currState[j].length > 0) {
+          // Aynı renge dökme hamlesi: En yüksek öncelik
+          priority = 10;
+        } else {
+          // Boş şişeye dökme hamlesi:
+          // Karışık bir şişenin önünü açıyorsa orta öncelik, düzgün katmanı boşa taşıyorsa en düşük
+          priority = (currState[i].length > tb.count) ? 2 : 1;
+        }
+        moves.push({ from: i, to: j, n, color: tb.color, priority });
       }
     }
-    return false;
+    
+    // Aynı derinlik seviyesindeki hamleleri mantık sırasına göre sırala
+    moves.sort((a, b) => b.priority - a.priority);
+    
+    // Yeni durumları üretip kuyruğa ekle
+    for (const m of moves) {
+      const nextState = currState.map(t => t.slice());
+      for (let k = 0; k < m.n; k++) {
+        nextState[m.to].push(nextState[m.from].pop());
+      }
+      
+      const key = canonical(nextState);
+      if (!visited.has(key)) {
+        visited.add(key);
+        const nextPath = curr.path.slice();
+        nextPath.push([m.from, m.to, m.n, m.color]);
+        queue.push({ state: nextState, path: nextPath });
+      }
+    }
   }
-  return dfs(0) ? path.slice() : null;
+  return null;
 }
 
 // ─── BÖLÜM ÜRETİMİ (deterministik + çözülebilir) ─────────────────────────────
@@ -401,15 +433,16 @@ function makePourMove(from, to, state) {
   return { from, to, n, color: state[from][state[from].length - 1] };
 }
 
-function startPourMove(move) {
-  anims.push({ from: move.from, to: move.to, n: move.n, color: move.color, t0: performance.now(), dur: 520 + move.n * 75 });
+function startPourMove(move, speedMultiplier) {
+  const mult = speedMultiplier || 1.0;
+  anims.push({ from: move.from, to: move.to, n: move.n, color: move.color, t0: performance.now(), dur: (520 + move.n * 75) / mult });
 }
 
 function tubeIsPouringOut(i) {
   return anims.some(a => a.from === i);
 }
 
-function tryPour(from, to) {
+function tryPour(from, to, speedMultiplier) {
   if (won) return false;
   
   // Döküm yapan (eğik durumdaki) bir şişeden başka bir yere döküm yapılamaz
@@ -423,7 +456,7 @@ function tryPour(from, to) {
   applyMove(tubes, move);
   history.push({ from, to, n: move.n });
   hint = null;
-  startPourMove(move);
+  startPourMove(move, speedMultiplier);
   return true;
 }
 
@@ -1452,7 +1485,33 @@ function cheatOneMoveLeft() {
   }
 }
 
-// Butonu dinamik olarak oluştur ve ekle
+function doAutoSolveMove() {
+  if (won || anims.length || transition) return;
+  if (S.coins < 1) {
+    showToast('Yetersiz altın!', THEME.gold, 1500);
+    return;
+  }
+  
+  // Mevcut durumdan çözümü bulmaya çalış
+  const path = solve(tubes, 120000);
+  if (path && path.length > 0) {
+    const nextMove = path[0];
+    const from = nextMove[0];
+    const to = nextMove[1];
+    
+    // Doğru hamleyi oyuna uygula (bu fonksiyon pour animasyonunu tetikler)
+    if (tryPour(from, to, 5.0)) {
+      S.coins -= 1;
+      save();
+      showToast('-1 Altın (Oto Hamle)', THEME.gold, 1000);
+      kick();
+    }
+  } else {
+    showToast('Çözüm bulunamadı!', THEME.dim, 1500);
+  }
+}
+
+// Hile Butonunu oluştur ve ekle
 const devBtn = document.createElement('button');
 devBtn.id = 'devSolveBtn';
 devBtn.textContent = 'Hile: Son Hamle';
@@ -1478,6 +1537,35 @@ document.body.appendChild(devBtn);
 
 devBtn.addEventListener('click', cheatOneMoveLeft);
 devBtn.addEventListener('touchstart', (e) => {
-  e.stopPropagation(); // Canvas dokunma olayının tetiklenmesini engelle
+  e.stopPropagation();
+}, { passive: true });
+
+// Oto Çözüm Deneme Butonunu oluştur ve ekle
+const autoBtn = document.createElement('button');
+autoBtn.id = 'autoSolveBtn';
+autoBtn.textContent = 'Oto Çözüm (1 Altın)';
+autoBtn.style.cssText = `
+  position: fixed;
+  bottom: 170px;
+  right: 20px;
+  padding: 8px 14px;
+  background: rgba(43, 194, 119, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  touch-action: auto;
+  transition: opacity 0.15s;
+`;
+document.body.appendChild(autoBtn);
+
+autoBtn.addEventListener('click', doAutoSolveMove);
+autoBtn.addEventListener('touchstart', (e) => {
+  e.stopPropagation();
 }, { passive: true });
 
