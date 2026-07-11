@@ -418,7 +418,7 @@ function tubePath(x, y, w, h, rt, rb) {
 }
 function innerPath(ix, itop, iw, ibot, rb) {
   ctx.beginPath();
-  const ry = iw * 0.08;
+  const ry = iw * 0.6;
   ctx.moveTo(ix, itop - ry);
   ctx.lineTo(ix + iw, itop - ry);
   ctx.lineTo(ix + iw, ibot - rb);
@@ -428,22 +428,42 @@ function innerPath(ix, itop, iw, ibot, rb) {
   ctx.closePath();
 }
 
-function drawLiquidBand(x, w, top, height, ci, sprinkleKey) {
+function drawLiquidBand(x, w, top, height, ci, sprinkleKey, angle) {
   if (height <= 0.5) return;
+  angle = angle || 0;
   const baseColor = COLORS[ci];
-  const rx = w / 2;
-  const ry = Math.min(w * 0.08, height * 0.5);
+  const rx_base = w / 2;
+  const ry_base = Math.min(w * 0.08, height * 0.5);
   const botY = top + height;
   
   ctx.save();
   
-  // 1. Draw cylinder body and bottom cap (solid color, no shading)
+  // Calculate rotation of the top cap to simulate horizontal surface under tilt
+  const maxRot = Math.PI / 4; // Max 45 degrees
+  const rotAngle = Math.max(-maxRot, Math.min(maxRot, -angle));
+  
+  // To prevent the tilted top surface from intersecting the flat bottom cap of the segment
+  // when the segment is very short (height is small), we limit the tilt angle.
+  // The vertical offset dy must not exceed height * 0.8.
+  const maxRotAngle = Math.atan((height * 0.8) / rx_base);
+  const clampedRotAngle = Math.max(-maxRotAngle, Math.min(maxRotAngle, rotAngle));
+  
+  const cosRot = Math.cos(clampedRotAngle);
+  
+  // Adjust horizontal radius so the ellipse edges meet the tube walls at x and x + w
+  const rx = rx_base / cosRot;
+  const ry = ry_base;
+  
+  // Vertical offset at the walls due to rotation
+  const dy = rx_base * Math.tan(-clampedRotAngle);
+  
+  // 1. Draw cylinder body and bottom cap (flat bottom, tilted top)
   ctx.beginPath();
-  ctx.moveTo(x, top);
-  ctx.lineTo(x + w, top);
+  ctx.moveTo(x, top + dy);
+  ctx.lineTo(x + w, top - dy);
   ctx.lineTo(x + w, botY);
-  ctx.ellipse(x + rx, botY, rx, ry, 0, 0, Math.PI, false);
-  ctx.lineTo(x, top);
+  ctx.ellipse(x + rx_base, botY, rx_base, ry_base, 0, 0, Math.PI, false);
+  ctx.lineTo(x, top + dy);
   ctx.closePath();
   ctx.fillStyle = baseColor;
   ctx.fill();
@@ -451,9 +471,9 @@ function drawLiquidBand(x, w, top, height, ci, sprinkleKey) {
   // 2. Draw sprinkles
   drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey);
   
-  // 3. Draw top cap ellipse
+  // 3. Draw top cap ellipse (rotated to match liquid tilt)
   ctx.beginPath();
-  ctx.ellipse(x + rx, top, rx, ry, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + rx_base, top, rx, ry, clampedRotAngle, 0, Math.PI * 2);
   ctx.fillStyle = baseColor;
   ctx.fill();
   
@@ -552,13 +572,13 @@ function drawTube(R, spec) {
   ctx.clip();
   for (let s = 0; s < spec.units.length; s++) {
     const segBottom = ibot - s * segH;
-    drawLiquidBand(ix, iw, segBottom - segH - 0.5, segH + 1, spec.units[s], R.i * 17 + s);
+    drawLiquidBand(ix, iw, segBottom - segH - 0.5, segH + 1, spec.units[s], R.i * 17 + s, 0);
   }
   if (spec.partialTop && spec.partialTop.frac > 0.001) {
     const base = spec.units.length;
     const segBottom = ibot - base * segH;
     const ph = segH * spec.partialTop.frac;
-    drawLiquidBand(ix, iw, segBottom - ph, ph + 0.5, spec.partialTop.color, R.i * 17 + base + 9);
+    drawLiquidBand(ix, iw, segBottom - ph, ph + 0.5, spec.partialTop.color, R.i * 17 + base + 9, angle);
   }
   ctx.restore();
 
@@ -845,6 +865,46 @@ function draw(now) {
     if (hint && (i === hint.from || i === hint.to)) spec.hint = true;
     drawTube(L.rects[i], spec);
   }
+  
+  // ─── DÖKÜLME AKIŞ ÇİZGİSİ (Pouring Stream Animation) ───────────────────────
+  for (const a of activeAnims) {
+    if (a.p >= POUR_MOVE_END && a.p <= POUR_RETURN_START) {
+      const fromR = L.rects[a.from];
+      const toR = L.rects[a.to];
+      
+      const fromCx = fromR.x + fromR.w / 2;
+      const toCx = toR.x + toR.w / 2;
+      const dir = fromCx <= toCx ? 1 : -1;
+      
+      // Dökülen tüpün ağzının konumu
+      const targetLipX = toCx - dir * toR.w * 0.24;
+      const targetLipY = toR.y - Math.max(1, toR.w * 0.025);
+      
+      // Hedef tüpteki sıvı seviyesinin konumu
+      const wall = toR.w * 0.085;
+      const ibot = toR.y + toR.h - wall;
+      const rt = toR.w * 0.17;
+      const neck = toR.h * 0.11;
+      const itop = toR.y + neck;
+      const segH = (ibot - itop) / CAP;
+      
+      const targetUnits = tubes[a.to];
+      const L_solid = targetUnits.length - a.n;
+      const targetTopY = ibot - (L_solid * segH) - (segH * a.fillP);
+      
+      // Akış çizgisini çiz (yuvarlatılmış uçlarla dikey hat)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(targetLipX, targetLipY);
+      ctx.lineTo(targetLipX, targetTopY);
+      ctx.strokeStyle = COLORS[a.color];
+      ctx.lineWidth = Math.max(3, toR.w * 0.09);
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   for (const overlay of sourceOverlays) drawTube(overlay.rect, overlay.spec);
 
   drawBottomBar(L);
