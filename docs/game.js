@@ -149,7 +149,7 @@ function makeLevel(idx) {
 
 // ─── DURUM ───────────────────────────────────────────────────────────────────
 const KEY = 'colorsort_v1';
-function defaultState() { return { levelIndex: 0, coins: START_COINS, solvedCount: 0 }; }
+function defaultState() { return { levelIndex: 0, coins: START_COINS, solvedCount: 0, solvedStates: [] }; }
 function load() {
   try { const d = JSON.parse(localStorage.getItem(KEY)); if (d) return d; } catch (e) {}
   return null;
@@ -160,6 +160,7 @@ function normalize(d) {
     s.levelIndex = Math.min(LEVELS.length - 1, Math.max(0, d.levelIndex | 0));
     s.coins = Number.isFinite(d.coins) ? Math.max(0, d.coins | 0) : START_COINS;
     s.solvedCount = Math.max(0, d.solvedCount | 0);
+    s.solvedStates = Array.isArray(d.solvedStates) ? d.solvedStates : [];
   }
   return s;
 }
@@ -181,6 +182,8 @@ let won = false;
 let toast = { msg: '', color: '', start: 0, until: 0 };
 let running = false;          // rAF döngüsü açık mı (talep-üzerine render)
 let last = 0;                 // son kare zamanı — kick() erken çağrıldığı için burada tanımlı (TDZ önlemi)
+let transition = null;        // { t0, dur, fromIdx, toIdx }
+let levelTeaserCache = {};    // { levelIdx: tubes }
 
 function showToast(msg, color, dur) {
   const t0 = performance.now();
@@ -194,6 +197,189 @@ function startLevel(i) {
   anims = []; hint = null; won = false;
   tubeLifts = new Array(tubes.length).fill(0);
   kick();
+}
+
+function startZoomTransition(fromIdx, toIdx) {
+  selected = -1;
+  anims = [];
+  won = false;
+  transition = {
+    t0: performance.now(),
+    dur: 2800, // 2.8 saniyelik sinematik geçiş
+    fromIdx: fromIdx,
+    toIdx: toIdx
+  };
+  kick();
+}
+
+function getCameraPose(t, fromIdx, toIdx) {
+  const fromCol = fromIdx % 3, fromRow = Math.floor(fromIdx / 3);
+  const toCol = toIdx % 3, toRow = Math.floor(toIdx / 3);
+  
+  const fromX = fromCol * W;
+  const fromY = fromRow * H;
+  const toX = toCol * W;
+  const toY = toRow * H;
+  
+  let scale = 1.0;
+  let tx = fromX;
+  let ty = fromY;
+  
+  // Phase 1: Zoom Out -> Mevcut bölüme (fromIdx) odaklanarak uzaklaşma (0.0 ile 0.40 arası)
+  if (t < 0.40) {
+    const p = t / 0.40;
+    const ep = easeInOut(p);
+    scale = lerp(1.0, 0.30, ep);
+    tx = fromX;
+    ty = fromY;
+  }
+  // Phase 2: Hızlı Odak Kayması (Direct swift pan to next cell) -> (0.40 ile 0.55 arası)
+  else if (t < 0.55) {
+    const p = (t - 0.40) / 0.15;
+    const ep = easeInOut(p);
+    scale = 0.30;
+    tx = lerp(fromX, toX, ep);
+    ty = lerp(fromY, toY, ep);
+  }
+  // Phase 3: Zoom In -> Doğrudan yeni bölüme (toIdx) odaklanarak yaklaşma (0.55 ile 1.0 arası)
+  else {
+    const p = (t - 0.55) / 0.45;
+    const ep = easeInOut(p);
+    scale = lerp(0.30, 1.0, ep);
+    tx = toX;
+    ty = toY;
+  }
+  
+  return { scale, tx, ty };
+}
+
+function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  
+  let cellTubes = [];
+  if (i === transition.fromIdx) {
+    cellTubes = tubes;
+  } else if (i < transition.fromIdx) {
+    // Çözüm düzenini saklandığı yerden al
+    cellTubes = S.solvedStates[i];
+    
+    // Geriye dönük uyumluluk (daha önceki çözümler yoksa otomatik doldur)
+    if (!cellTubes || !cellTubes.length) {
+      const cfg = LEVELS[i];
+      cellTubes = [];
+      for (let c = 0; c < cfg.colors; c++) {
+        cellTubes.push(new Array(CAP).fill(c));
+      }
+      for (let e = 0; e < cfg.empty; e++) {
+        cellTubes.push([]);
+      }
+    }
+  } else {
+    if (!levelTeaserCache[i]) {
+      levelTeaserCache[i] = makeLevel(i);
+    }
+    cellTubes = levelTeaserCache[i];
+  }
+  
+  // 1. Grid hücre sınır çizgilerini çiz (gridOpacity oranında görünür kıl)
+  if (gridOpacity > 0.001) {
+    ctx.save();
+    ctx.globalAlpha = gridOpacity;
+    ctx.strokeStyle = i === transition.toIdx ? THEME.accent : 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(10, 10, W - 20, H - 20);
+    ctx.restore();
+  }
+  
+  // 2. Seviye Başlığını çiz (Hassas konumlandırma ve HUD ile pürüzsüz geçiş)
+  const headerY = 12;
+  const pillH = Math.min(42, H * 0.05);
+  const levelY = headerY + pillH + 16;
+  const levelBarH = 26;
+  const barH = Math.min(80, H * 0.1);
+  const bottomBarY = H - 18 - barH;
+  const tubesTop = levelY + levelBarH + 14;
+  const tubesBottom = bottomBarY - 16;
+  
+  const levelText = 'Seviye ' + (i + 1);
+  const titleFont = `800 ${Math.floor(Math.min(W * 0.055, 22))}px 'Segoe UI', sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = titleFont;
+
+  if (i === transition.toIdx || i === transition.fromIdx) {
+    // Aktif geçiş hedefi/kaynağı: grid renk tonundan normal HUD rengine pürüzsüz geçiş
+    const gridColor = i <= transition.fromIdx ? THEME.win : THEME.dim;
+    if (gridOpacity > 0.001) {
+      ctx.save();
+      ctx.globalAlpha = gridOpacity;
+      ctx.fillStyle = gridColor;
+      ctx.fillText(levelText, W / 2, levelY);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.globalAlpha = 1 - gridOpacity;
+    ctx.fillStyle = THEME.text;
+    ctx.fillText(levelText, W / 2, levelY);
+    ctx.restore();
+  } else {
+    // Diğer pasif hücreler: grid rengi ve grid görünürlüğü
+    ctx.save();
+    ctx.globalAlpha = gridOpacity;
+    ctx.fillStyle = i <= transition.fromIdx ? THEME.win : THEME.dim;
+    ctx.fillText(levelText, W / 2, levelY);
+    ctx.restore();
+  }
+
+  // 3. Bölüm Tamamlandı/Kilitli durum yazısını çiz (gridOpacity oranında görünür kıl)
+  if (gridOpacity > 0.001) {
+    ctx.save();
+    ctx.globalAlpha = gridOpacity;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `800 ${Math.floor(Math.min(W * 0.05, 20))}px 'Segoe UI', sans-serif`;
+    if (i < transition.fromIdx) {
+      ctx.fillStyle = THEME.win;
+      ctx.fillText('✓ TAMAMLANDI', W / 2, H - 45);
+    } else if (i === transition.fromIdx) {
+      ctx.fillStyle = THEME.win;
+      ctx.fillText('✓ SEVİYE TAMAM', W / 2, H - 45);
+    } else {
+      ctx.fillStyle = THEME.accent;
+      ctx.fillText('KİLİTLİ', W / 2, H - 45);
+    }
+    ctx.restore();
+  }
+  
+  // 4. Şişeleri çiz
+  const T = cellTubes.length;
+  const rows = T <= 5 ? 1 : (T <= 10 ? 2 : 3);
+  const perRow = Math.ceil(T / rows);
+  const side = Math.max(14, W * 0.04);
+  const gap = Math.max(8, W * 0.028);
+  const rawTw = (W - 2 * side - (perRow - 1) * gap) / perRow;
+  const tw = Math.max(20, Math.min(rawTw, 74));
+  const areaH = Math.max(120, tubesBottom - tubesTop);
+  const rowH = areaH / rows;
+  const th = Math.max(70, Math.min(tw * 3.1, rowH * 0.86));
+  
+  const rects = [];
+  for (let idx = 0; idx < T; idx++) {
+    const r = Math.floor(idx / perRow);
+    const inRow = (r < rows - 1) ? perRow : (T - perRow * (rows - 1));
+    const c = idx - r * perRow;
+    const rowW = inRow * tw + (inRow - 1) * gap;
+    const sx = (W - rowW) / 2;
+    const x = sx + c * (tw + gap);
+    const cy = tubesTop + rowH * (r + 0.5);
+    rects.push({ x, y: cy - th / 2, w: tw, h: th, i: idx });
+  }
+  
+  for (let idx = 0; idx < T; idx++) {
+    const spec = { units: cellTubes[idx], partialTop: null, partialTops: [], lift: 0, glow: false, hint: false, tx: 0, ty: 0, angle: 0 };
+    drawTube(rects[idx], spec);
+  }
+  
+  ctx.restore();
 }
 
 // ─── OYUN AKIŞI ──────────────────────────────────────────────────────────────
@@ -245,16 +431,21 @@ function win() {
   won = true;
   S.coins += WIN_COINS;
   S.solvedCount++;
+  
+  // Çözülen şişelerin son halini kalıcı veri olarak sakla
+  S.solvedStates[S.levelIndex] = JSON.parse(JSON.stringify(tubes));
+  
   save();
   if (window.Leaderboard) window.Leaderboard.recordScore(S.solvedCount);
-  showToast('SEVİYE TAMAM  +' + WIN_COINS, THEME.win, 1600);
+  
+  // 400 milisaniye sonra bir sonraki bölüme geçiş animasyonunu otomatik başlat
+  setTimeout(nextLevel, 400);
 }
 
 function nextLevel() {
   let ni = S.levelIndex + 1;
-  if (ni >= LEVELS.length) { ni = 0; showToast('Tebrikler! Baştan başlıyoruz', THEME.accent, 1800); }
-  S.levelIndex = ni; save();
-  startLevel(ni);
+  if (ni >= LEVELS.length) { ni = 0; }
+  startZoomTransition(S.levelIndex, ni);
 }
 
 function doRestart() { if (!anims.length) startLevel(S.levelIndex); }
@@ -851,6 +1042,44 @@ function sourcePourPose(fromR, toR, p, L) {
 function draw(now) {
   const L = layout();
 
+  if (transition) {
+    const t_pct = Math.min(1, (now - transition.t0) / transition.dur);
+    
+    if (t_pct >= 1.0) {
+      const nextIdx = transition.toIdx;
+      transition = null;
+      S.levelIndex = nextIdx;
+      save();
+      startLevel(nextIdx);
+      return;
+    }
+    
+    // Geçiş ekranı ızgarasını çiz
+    ctx.fillStyle = THEME.bg;
+    ctx.fillRect(0, 0, W, H);
+    
+    const pose = getCameraPose(t_pct, transition.fromIdx, transition.toIdx);
+    const gridOpacity = clamp01((1.0 - pose.scale) / 0.7);
+    
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(pose.scale, pose.scale);
+    ctx.translate(-pose.tx - W / 2, -pose.ty - H / 2);
+    
+    for (let i = 0; i < LEVELS.length; i++) {
+      const r = Math.floor(i / 3);
+      const c = i % 3;
+      drawLevelGridCell(i, c * W, r * H, now, gridOpacity);
+    }
+    ctx.restore();
+
+    // Üstte sabit durması gereken HUD elemanlarını çiz
+    drawCoinPill(L.coinPill);
+    drawRestart(L.restart);
+    drawBottomBar(L);
+    return;
+  }
+
   // arka plan — düz
   ctx.fillStyle = THEME.bg; ctx.fillRect(0, 0, W, H);
 
@@ -931,23 +1160,15 @@ function draw(now) {
 
   // zafer katmanı
   if (won) {
-    ctx.fillStyle = 'rgba(6,8,24,0.55)';
+    ctx.fillStyle = 'rgba(6,8,24,0.45)';
     ctx.fillRect(0, 0, W, H);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = THEME.win;
     ctx.font = `900 ${Math.floor(Math.min(W * 0.1, 44))}px 'Segoe UI', sans-serif`;
-    ctx.fillText('SEVİYE TAMAM', W / 2, H * 0.4);
+    ctx.fillText('SEVİYE TAMAM', W / 2, H * 0.45);
     ctx.fillStyle = THEME.accent;
     ctx.font = `800 ${Math.floor(Math.min(W * 0.05, 22))}px 'Segoe UI', sans-serif`;
-    ctx.fillText('+' + WIN_COINS + ' altın', W / 2, H * 0.4 + 44);
-
-    const bw = Math.min(220, W * 0.6), bh = 54, bx = W / 2 - bw / 2, by = H * 0.56;
-    roundRectPath(bx, by, bw, bh, bh / 2);
-    ctx.fillStyle = THEME.win; ctx.fill();
-    ctx.fillStyle = '#08210f';
-    ctx.font = `800 ${Math.floor(bh * 0.4)}px 'Segoe UI', sans-serif`;
-    ctx.fillText('DEVAM  ▶', W / 2, by + bh / 2 + 1);
-    won_btn = { x: bx, y: by, w: bw, h: bh };
+    ctx.fillText('+' + WIN_COINS + ' altın', W / 2, H * 0.45 + 44);
   }
 
   // toast
@@ -969,7 +1190,7 @@ let won_btn = null;
 // Bir şey hareket etmiyorsa (animasyon / parçacık / toast / ipucu / zafer)
 // döngü durur; tek kare çizilip beklenir. Girişte kick() ile yeniden başlar.
 function animating(now) {
-  return anims.length > 0 || hasAnimatedSprinkles() || won || toast.until > now || (hint && hint.until > now);
+  return anims.length > 0 || transition !== null || hasAnimatedSprinkles() || won || toast.until > now || (hint && hint.until > now);
 }
 function loop(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
@@ -1013,10 +1234,10 @@ function tubeAt(px, py, L) {
 }
 
 function onTap(px, py) {
+  if (transition) return;
   const L = layout();
 
   if (won) {
-    if (!won_btn || inRect(px, py, won_btn)) nextLevel();
     return;
   }
   if (inCircle(px, py, L.restart.x, L.restart.y, L.restart.r * 1.3)) return doRestart();
@@ -1057,6 +1278,7 @@ canvas.addEventListener('pointerdown', (e) => {
 }, { passive: false });
 
 window.addEventListener('keydown', (e) => {
+  if (transition) return;
   const k = e.key.toLowerCase();
   if (k === 'r') doRestart();
   else if (k === 'u') doUndo();
