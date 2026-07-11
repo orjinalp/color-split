@@ -1,0 +1,17 @@
+Color Split is a relaxing sorting puzzle where you bring colorful liquids together in the correct bottles.
+
+Tap a bottle, then choose where you want to pour. You can pour a color only into an empty bottle or onto the same color. Complete the level by making every bottle contain a single color.
+
+FEATURES
+• Easy-to-learn touch controls
+• 20 solvable levels with increasing difficulty
+• Hints that perform a valid move
+• Undo your previous move
+• Add an empty bottle when you need help
+• Level rewards and a coin system
+• Local weekly leaderboard
+• Smooth pouring animations and vivid colors
+• Progress stored on your device
+• Offline support for core gameplay
+
+Color Split is free to play. Optional rewarded ads may grant bonus coins and require an internet connection. In-game coins are used only inside the game and have no real-world monetary value.

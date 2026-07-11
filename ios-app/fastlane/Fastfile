@@ -45,8 +45,6 @@ def screenshot_dimensions(path)
 end
 
 def prepare_store_screenshots
-  target_dir = File.join(SCREENSHOTS_PATH, "tr")
-
   screenshots = {
     "01-main-6.5.png" => { target: "01-main-iphone-6.5.png", width: 1242, height: 2688 },
     "02-menu-6.5.png" => { target: "02-menu-iphone-6.5.png", width: 1242, height: 2688 },
@@ -68,13 +66,16 @@ def prepare_store_screenshots
       )
     end
 
-    [source_path, File.join(target_dir, spec[:target])]
+    [source_path, spec[:target]]
   end
 
-  FileUtils.rm_rf(target_dir)
-  FileUtils.mkdir_p(target_dir)
-  copy_jobs.each do |source_path, target_path|
-    FileUtils.cp(source_path, target_path)
+  %w[en-US tr].each do |locale|
+    target_dir = File.join(SCREENSHOTS_PATH, locale)
+    FileUtils.rm_rf(target_dir)
+    FileUtils.mkdir_p(target_dir)
+    copy_jobs.each do |source_path, target_name|
+      FileUtils.cp(source_path, File.join(target_dir, target_name))
+    end
   end
 end
 

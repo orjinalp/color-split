@@ -709,10 +709,10 @@ function doHint() {
   const from = nextMove[0];
   const to = nextMove[1];
 
-  if (tryPour(from, to, 5.0)) {
+  if (tryPour(from, to)) {
     S.coins -= HINT_COST;
     save();
-    showToast(`-${HINT_COST} Altın (Oto Çözüm)`, THEME.gold, 1000);
+    showToast(`-${HINT_COST} Altın`, THEME.gold, 1000);
     kick();
   }
 }
@@ -1203,13 +1203,19 @@ function drawBottomBar(L) {
     else if (b.id === 'undo') drawUndo(cx, cy, ir);
     else drawAddBottle(cx, cy, ir);
 
-    // bedel: küçük altın + sayı
+    // Bedel: küçük altın + sayı grubunu ikonun altında tam ortala.
     const coinY = b.y + b.h * 0.78;
-    drawCoin(cx - b.w * 0.16, coinY, b.h * 0.11);
+    const coinR = b.h * 0.11;
+    const costText = String(b.cost);
+    const costGap = b.h * 0.07;
     ctx.fillStyle = '#fff';
     ctx.font = `800 ${Math.floor(b.h * 0.2)}px 'Segoe UI', sans-serif`;
+    const costTextW = ctx.measureText(costText).width;
+    const costGroupW = coinR * 2 + costGap + costTextW;
+    const costGroupX = cx - costGroupW / 2;
+    drawCoin(costGroupX + coinR, coinY, coinR);
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(b.cost), cx - b.w * 0.16 + b.h * 0.18, coinY + 1);
+    ctx.fillText(costText, costGroupX + coinR * 2 + costGap, coinY + 1);
     ctx.restore();
   }
 }
