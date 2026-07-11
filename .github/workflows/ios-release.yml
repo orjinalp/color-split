@@ -45,29 +45,59 @@ jobs:
 
       - name: Prepare App Store Connect API key
         shell: bash
+        env:
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
         run: |
+          if [ -z "$ASC_KEY_P8_BASE64" ]; then
+            echo "::error::ASC_KEY_P8_BASE64 secret'i boş."
+            exit 1
+          fi
           KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
-          echo "${{ secrets.ASC_KEY_P8_BASE64 }}" | base64 --decode > "$KEY_PATH"
+          printf '%s' "$ASC_KEY_P8_BASE64" | tr -d '\r\n ' | base64 --decode > "$KEY_PATH"
+          if ! grep -q "BEGIN PRIVATE KEY" "$KEY_PATH"; then
+            echo "::error::ASC_KEY_P8_BASE64 geçerli bir App Store Connect .p8 anahtarı değil."
+            exit 1
+          fi
           chmod 600 "$KEY_PATH"
           echo "ASC_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Import distribution certificate
         shell: bash
+        env:
+          IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
         run: |
+          if [ -z "$IOS_DIST_CERT_P12_BASE64" ]; then
+            echo "::error::IOS_DIST_CERT_P12_BASE64 secret'i boş."
+            exit 1
+          fi
+          if [ -z "$P12_PASSWORD" ]; then
+            echo "::error::IOS_DIST_CERT_P12_PASSWORD secret'i boş."
+            exit 1
+          fi
+
           CERT_PATH="$RUNNER_TEMP/distribution.p12"
           KEYCHAIN_PATH="$RUNNER_TEMP/color-split.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
-          echo "${{ secrets.IOS_DIST_CERT_P12_BASE64 }}" | base64 --decode > "$CERT_PATH"
+          printf '%s' "$IOS_DIST_CERT_P12_BASE64" | tr -d '\r\n ' | base64 --decode > "$CERT_PATH"
+
+          CERT_BYTES="$(wc -c < "$CERT_PATH" | tr -d ' ')"
+          if [ "$CERT_BYTES" -ne 3453 ]; then
+            echo "::error::Decode edilen .p12 boyutu hatalı: ${CERT_BYTES} bayt (beklenen 3453). Secret'ı masaüstündeki apple_distribution_ci.p12 dosyasından yeniden oluştur."
+            exit 1
+          fi
+
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security import "$CERT_PATH" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
-          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
       - name: Sync web game and generate Xcode project
         run: |
-          ./sync-web.sh
+          bash ./sync-web.sh
           xcodegen generate
 
       - name: Build and upload Color Split
