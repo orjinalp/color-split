@@ -751,9 +751,9 @@ function drawLiquidBand(x, w, top, height, ci, sprinkleKey, angle) {
 function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
   if (height < 10 || (ci !== 3 && ci !== 6)) return;
 
-  let count = Math.max(6, Math.min(11, Math.floor((w * height) / 360)));
+  let count = Math.max(9, Math.min(18, Math.floor((w * height) / 220)));
   if (ci === 6) {
-    count = Math.round(count * 1.55); // Kırmızıda sayı artırıldı
+    count = Math.round(count * 2.1); // Kırmızıda sayı daha da artırıldı (2.1x)
   }
 
   // Tıklayınca zıplamaması için koordinatlardan (top, height) bağımsız sabit seed
@@ -785,8 +785,8 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
     const len = Math.max(2.2, w * (0.055 + fv * 0.055));
     const twinkle = 0.22 + 0.42 * (0.5 + 0.5 * Math.sin(time * (1.5 + fv * 1.4) + seed + i * 1.7));
     
-    // Kırmızı partiküllerin opaklığı (parlaklığı) artırıldı
-    ctx.globalAlpha = (ci === 6 ? 0.49 : 0.34) * twinkle;
+    // Kırmızı partiküllerin opaklığı (parlaklığı) daha da artırıldı
+    ctx.globalAlpha = (ci === 6 ? 0.82 : 0.45) * twinkle;
 
     if (fv < 0.34) {
       ctx.beginPath();
