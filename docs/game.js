@@ -17,18 +17,18 @@ const THEME = {
   bar:    '#232a52',   // alt bar — düz panel
 };
 
-// Sıvı renk paleti (canlı, birbirinden iyi ayrışan ve modern pastel-neon tonlar).
+// Sıvı renk paleti (canlı, birbirinden iyi ayrışan tonlar).
 const COLORS = [
-  '#22d3ee', // 0 Gökyüzü Mavisi (Vibrant Neon Cyan)
-  '#fb923c', // 1 Turuncu (Vibrant Neon Orange)
-  '#4ade80', // 2 Canlı Yeşil (Vibrant Candy Green)
-  '#facc15', // 3 Altın Sarısı (Vibrant Golden Yellow)
-  '#a3e635', // 4 Fıstık Yeşili (Electric Lime Green)
-  '#6366f1', // 5 Çivit Mavisi (Electric Indigo Blue)
-  '#f87171', // 6 Mercan Kırmızısı (Vibrant Coral Red)
-  '#ec4899', // 7 Şeker Pembe (Vibrant Bubblegum Pink)
-  '#c084fc', // 8 Menekşe Moru (Vibrant Violet Purple)
-  '#2dd4bf', // 9 Canlı Turkuaz (Vibrant Luminous Teal)
+  '#3fa9e8', // 0 gök mavisi
+  '#f0862e', // 1 turuncu
+  '#1f7a2e', // 2 koyu yeşil
+  '#f4c724', // 3 sarı
+  '#9bd64f', // 4 fıstık yeşili
+  '#3d63d6', // 5 kraliyet mavisi
+  '#e8434a', // 6 kırmızı
+  '#e85fb0', // 7 pembe
+  '#a544c9', // 8 mor
+  '#20c4c4', // 9 turkuaz
 ];
 
 // ─── BÖLÜMLER ────────────────────────────────────────────────────────────────
@@ -721,18 +721,37 @@ function drawUndo(cx, cy, r) {
 }
 function drawAddBottle(cx, cy, r) {
   ctx.strokeStyle = '#fff';
-  ctx.lineWidth = Math.max(2, r * 0.15);
+  ctx.lineWidth = Math.max(2, r * 0.12);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  tubePath(cx - r * 0.08, cy - r * 0.82, r * 0.86, r * 1.64, r * 0.14, r * 0.34);
+  
+  // Center the bottle inside the button
+  const bw = r * 0.85;
+  const bh = r * 1.5;
+  const bx = cx - bw / 2;
+  const by = cy - bh / 2 + r * 0.05; // slightly offset down to balance the mouth
+  const rt = bw * 0.17;
+  const rb = bw * 0.46;
+  
+  // Draw the bottle body
+  tubePath(bx, by, bw, bh, rt, rb);
   ctx.stroke();
+  
+  // Draw the 3D mouth ellipse at the top to match the game design
+  const mouthRx = bw / 2 + bw * 0.06;
+  const mouthRy = bw * 0.07;
   ctx.beginPath();
-  ctx.moveTo(cx + r * 0.22, cy - r * 0.18);
-  ctx.lineTo(cx + r * 0.48, cy - r * 0.18);
+  ctx.ellipse(cx, by, mouthRx, mouthRy, 0, 0, Math.PI * 2);
   ctx.stroke();
+  
+  // Draw the plus (+) sign inside the bottle
+  const plusSize = bw * 0.28;
+  const plusCy = by + bh * 0.55; // centered in the body area
   ctx.beginPath();
-  ctx.moveTo(cx - r * 0.58, cy - r * 0.35); ctx.lineTo(cx - r * 0.58, cy + r * 0.35);
-  ctx.moveTo(cx - r * 0.93, cy); ctx.lineTo(cx - r * 0.23, cy);
+  ctx.moveTo(cx - plusSize, plusCy);
+  ctx.lineTo(cx + plusSize, plusCy);
+  ctx.moveTo(cx, plusCy - plusSize);
+  ctx.lineTo(cx, plusCy + plusSize);
   ctx.stroke();
 }
 
