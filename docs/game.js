@@ -4,17 +4,22 @@
 // 10 bölüm; bölümler deterministik üretilir ve dahili çözücü ile çözülebilirliği
 // garanti edilir (aynı çözücü "ipucu" düğmesini de besler).
 
+// ─── REKLAM YAPILANDIRMASI (AdMob iOS Backup) ──────────────────────────────────
+// Ödüllü Reklam (10 Otomatik Hamle Hakkı - "get 10 move assisted"):
+// App ID:     ca-app-pub-9218266514966883~9453060593
+// Ad Unit ID: ca-app-pub-9218266514966883/7344921948
+
 // ─── TEMA ────────────────────────────────────────────────────────────────────
 const THEME = {
-  bg:     '#141a38',   // düz koyu arka plan (degrade/parıltı yok)
-  panel:  'rgba(255,255,255,0.05)',
-  text:   '#f2f5ff',
-  dim:    '#8b93b5',
-  gold:   '#ffcf3f',
-  win:    '#51cf66',
-  lose:   '#ff6b6b',
+  bg: '#141a38',   // düz koyu arka plan (degrade/parıltı yok)
+  panel: 'rgba(255,255,255,0.05)',
+  text: '#f2f5ff',
+  dim: '#8b93b5',
+  gold: '#ffcf3f',
+  win: '#51cf66',
+  lose: '#ff6b6b',
   accent: '#e5379c',   // tek vurgu (magenta): restart, seçili şişe, ipucu
-  bar:    '#232a52',   // alt bar — düz panel
+  bar: '#232a52',   // alt bar — düz panel
 };
 
 // Sıvı renk paleti (canlı, birbirinden iyi ayrışan tonlar).
@@ -45,21 +50,21 @@ const LEVELS = [
   { colors: 7, empty: 2 },     //  9
   { colors: 8, empty: 2 },     // 10
   { colors: 8, empty: 2 },     // 11
-  { colors: 8, empty: 3 },     // 12
+  { colors: 8, empty: 2 },     // 12
   { colors: 9, empty: 2 },     // 13
-  { colors: 9, empty: 3 },     // 14
-  { colors: 9, empty: 3 },     // 15
+  { colors: 9, empty: 2 },     // 14
+  { colors: 9, empty: 2 },     // 15
   { colors: 10, empty: 2 },    // 16
-  { colors: 10, empty: 3 },    // 17
-  { colors: 10, empty: 3 },    // 18
-  { colors: 10, empty: 3 },    // 19
-  { colors: 10, empty: 3 },    // 20
+  { colors: 10, empty: 2 },    // 17
+  { colors: 10, empty: 2 },    // 18
+  { colors: 10, empty: 2 },    // 19
+  { colors: 10, empty: 2 },    // 20
 ];
 
 // Güç-artırıcı bedelleri
 const HINT_COST = 100;
 const UNDO_COST = 250;
-const ADD_COST  = 700;
+const ADD_COST = 700;
 const START_COINS = 500;
 const WIN_COINS = 60;
 const BONUS_COINS = 500;
@@ -120,7 +125,7 @@ function solveDFS(startTubes, budget) {
         const n = canPour(state[i], state[j]);
         if (!n) continue;
         if (state[j].length === 0 && wholeUniform) continue;
-        
+
         for (let k = 0; k < n; k++) state[j].push(state[i].pop());
         path.push([i, j, n, tb.color]);
         if (dfs(depth + 1)) return true;
@@ -138,13 +143,13 @@ function solveBFS(startTubes, budget) {
   const queue = [{ state: startTubes.map(t => t.slice()), parent: null, move: null }];
   const visited = new Set();
   visited.add(canonical(startTubes));
-  
+
   let head = 0;
   let nodes = 0;
   while (head < queue.length) {
     const curr = queue[head++];
     const currState = curr.state;
-    
+
     // Çözüme ulaşıldıysa bu yol kesinlikle en kısa (en optimal) yoldur!
     if (isSolved(currState)) {
       const path = [];
@@ -156,11 +161,11 @@ function solveBFS(startTubes, budget) {
       path.reverse();
       return path;
     }
-    
+
     if (nodes++ > budget) {
       break;
     }
-    
+
     // Geçerli tüm hamleleri topla
     const moves = [];
     for (let i = 0; i < currState.length; i++) {
@@ -172,7 +177,7 @@ function solveBFS(startTubes, budget) {
         const n = canPour(currState[i], currState[j]);
         if (!n) continue;
         if (currState[j].length === 0 && wholeUniform) continue; // gereksiz boşa taşıma budaması
-        
+
         let priority = 0;
         if (currState[j].length > 0) {
           // Aynı renge dökme hamlesi: En yüksek öncelik
@@ -185,17 +190,17 @@ function solveBFS(startTubes, budget) {
         moves.push({ from: i, to: j, n, color: tb.color, priority });
       }
     }
-    
+
     // Aynı derinlik seviyesindeki hamleleri mantık sırasına göre sırala
     moves.sort((a, b) => b.priority - a.priority);
-    
+
     // Yeni durumları üretip kuyruğa ekle
     for (const m of moves) {
       const nextState = currState.map(t => t.slice());
       for (let k = 0; k < m.n; k++) {
         nextState[m.to].push(nextState[m.from].pop());
       }
-      
+
       const key = canonical(nextState);
       if (!visited.has(key)) {
         visited.add(key);
@@ -222,11 +227,11 @@ function dealTubes(rng, colors, empty) {
 function makeLevel(idx) {
   const cfg = LEVELS[idx];
   const base = (0x9e3779b1 ^ Math.imul(idx + 1, 2654435761)) >>> 0;
-  for (let attempt = 0; attempt < 30; attempt++) {
+  for (let attempt = 0; attempt < 50; attempt++) {
     const rng = mulberry32((base ^ Math.imul(attempt + 1, 0x85ebca6b)) >>> 0);
     const tubes = dealTubes(rng, cfg.colors, cfg.empty);
     if (isSolved(tubes)) continue;
-    if (solveDFS(tubes, 5000)) return tubes;
+    if (solveDFS(tubes, 25000)) return tubes;
   }
   return dealTubes(mulberry32(base), cfg.colors, cfg.empty); // güvenli düşüş
 }
@@ -235,7 +240,7 @@ function makeLevel(idx) {
 const KEY = 'colorsort_v1';
 function defaultState() { return { levelIndex: 0, coins: START_COINS, solvedCount: 0, solvedStates: [] }; }
 function load() {
-  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d) return d; } catch (e) {}
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d) return d; } catch (e) { }
   return null;
 }
 function normalize(d) {
@@ -248,7 +253,7 @@ function normalize(d) {
   }
   return s;
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } }
 
 let S = normalize(load());
 window.S = S;
@@ -270,6 +275,10 @@ let running = false;          // rAF döngüsü açık mı (talep-üzerine rende
 let last = 0;                 // son kare zamanı — kick() erken çağrıldığı için burada tanımlı (TDZ önlemi)
 let transition = null;        // { t0, dur, fromIdx, toIdx }
 let levelTeaserCache = {};    // { levelIdx: tubes }
+let showGameCompleteScreen = false;
+let confettiParticles = [];
+let winAgainBtn = null;
+let lastTransitionTap = 0;
 
 function showToast(msg, color, dur) {
   const t0 = performance.now();
@@ -283,6 +292,7 @@ function startLevel(i) {
   selected = -1; history = []; extraTubes = 0;
   anims = []; hint = null; won = false;
   coinParticles = [];
+  confettiParticles = [];
   window.visualCoins = undefined;
   window.coinPillScale = 1.0;
   tubeLifts = new Array(tubes.length).fill(0);
@@ -310,11 +320,11 @@ function getCameraPose(t, fromIdx, toIdx) {
   const fromY = 0;
   const toX = toIdx * W;
   const toY = 0;
-  
+
   let scale = 1.0;
   let tx = fromX;
   let ty = fromY;
-  
+
   // Phase 1: Zoom Out -> Mevcut bölüme (fromIdx) odaklanarak uzaklaşma (0.0 ile 0.40 arası)
   if (t < 0.40) {
     const p = t / 0.40;
@@ -339,21 +349,21 @@ function getCameraPose(t, fromIdx, toIdx) {
     tx = toX;
     ty = toY;
   }
-  
+
   return { scale, tx, ty };
 }
 
 function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
   ctx.save();
   ctx.translate(offsetX, offsetY);
-  
+
   let cellTubes = [];
   if (i === transition.fromIdx) {
     cellTubes = tubes;
   } else if (i < transition.fromIdx) {
     // Çözüm düzenini saklandığı yerden al
     cellTubes = S.solvedStates[i];
-    
+
     // Geriye dönük uyumluluk (daha önceki çözümler yoksa otomatik doldur)
     if (!cellTubes || !cellTubes.length) {
       const cfg = LEVELS[i];
@@ -374,7 +384,7 @@ function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
     }
     cellTubes = levelTeaserCache[i];
   }
-  
+
   // 1. Grid hücre sınır çizgilerini çiz (gridOpacity oranında görünür kıl)
   if (gridOpacity > 0.001) {
     ctx.save();
@@ -384,7 +394,7 @@ function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
     ctx.strokeRect(10, 10, W - 20, H - 20);
     ctx.restore();
   }
-  
+
   // 2. Seviye Başlığını çiz (Hassas konumlandırma ve HUD ile pürüzsüz geçiş)
   const headerY = 12;
   const pillH = Math.min(42, H * 0.05);
@@ -394,7 +404,7 @@ function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
   const bottomBarY = H - 18 - barH;
   const tubesTop = levelY + levelBarH + 14;
   const tubesBottom = bottomBarY - 16;
-  
+
   const levelText = 'Seviye ' + (i + 1);
   const titleFont = `800 ${Math.floor(Math.min(W * 0.055, 22))}px 'Segoe UI', sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -442,10 +452,10 @@ function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
     }
     ctx.restore();
   }
-  
+
   // 4. Şişeleri çiz
   const T = cellTubes.length;
-  const rows = T <= 5 ? 1 : (T <= 10 ? 2 : 3);
+  const rows = T <= 5 ? 1 : 2;
   const perRow = Math.ceil(T / rows);
   const side = Math.max(14, W * 0.04);
   const gap = Math.max(8, W * 0.028);
@@ -454,7 +464,7 @@ function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
   const areaH = Math.max(120, tubesBottom - tubesTop);
   const rowH = areaH / rows;
   const th = Math.max(70, Math.min(tw * 3.1, rowH * 0.86));
-  
+
   const rects = [];
   for (let idx = 0; idx < T; idx++) {
     const r = Math.floor(idx / perRow);
@@ -466,12 +476,26 @@ function drawLevelGridCell(i, offsetX, offsetY, now, gridOpacity) {
     const cy = tubesTop + rowH * (r + 0.5);
     rects.push({ x, y: cy - th / 2, w: tw, h: th, i: idx });
   }
-  
+
   for (let idx = 0; idx < T; idx++) {
     const spec = { units: cellTubes[idx], partialTop: null, partialTops: [], lift: 0, glow: false, hint: false, tx: 0, ty: 0, angle: 0 };
     drawTube(rects[idx], spec);
   }
-  
+
+  // Konfetileri sadece bu hücreye aitse ve geçiş varsa çiz (böylece hücreyle birlikte küçülüp hareket ederler)
+  if (transition && i === transition.fromIdx && confettiParticles.length > 0) {
+    ctx.save();
+    for (const p of confettiParticles) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size / 2);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
   ctx.restore();
 }
 
@@ -497,14 +521,14 @@ function tubeIsPouringOut(i) {
 
 function tryPour(from, to, speedMultiplier) {
   if (won) return false;
-  
+
   // Döküm yapan (eğik durumdaki) bir şişeden başka bir yere döküm yapılamaz
   // veya döküm yapan bir şişenin içine döküm yapılamaz.
   if (tubeIsPouringOut(from) || tubeIsPouringOut(to)) return false;
-  
+
   const move = makePourMove(from, to, tubes);
   if (!move) return false;
-  
+
   // Hemen dökümü başlat
   applyMove(tubes, move);
   history.push({ from, to, n: move.n });
@@ -523,39 +547,39 @@ function finishAnimations(now) {
 function win() {
   if (won) return;
   won = true;
-  
+
   // Görsel kasa durumunu başlat (animasyon sırasında kademeli artacak)
   window.visualCoins = S.coins;
   window.coinPillScale = 1.0;
-  
+
   S.coins += WIN_COINS;
   S.solvedCount++;
   S.solvedStates[S.levelIndex] = JSON.parse(JSON.stringify(tubes));
   save();
   if (window.Leaderboard) window.Leaderboard.recordScore(S.solvedCount);
-  
+
   // Altın fırlatma koordinatları için konum bilgilerini al
   const L = layout();
   const targetX = L.coinPill.x + L.coinPill.h * 0.5 + 15;
   const targetY = L.coinPill.y + L.coinPill.h / 2;
-  
+
   // Çözülen (dolu) şişeleri bul
   const fullTubes = tubes.map((t, idx) => ({ t, idx })).filter(item => item.t.length === CAP);
   const numCoinsPerTube = 3;
   const totalCoinsToSpawn = Math.max(1, fullTubes.length * numCoinsPerTube);
-  
+
   // Her bir altın parçacığının değeri
   const baseVal = Math.floor(WIN_COINS / totalCoinsToSpawn);
   let remainder = WIN_COINS - (baseVal * totalCoinsToSpawn);
-  
+
   coinParticles = [];
   const now = performance.now();
   let coinId = 0;
-  
+
   fullTubes.forEach((item) => {
     const rect = L.rects[item.idx];
     const startX = rect.x + rect.w / 2;
-    
+
     // Altınların en üstteki sıvının elips kapağının (yuvarlak alanın) ortasından çıkması için Y hesabı
     const wall = rect.w * 0.085;
     const ibot = rect.y + rect.h - wall;
@@ -563,19 +587,19 @@ function win() {
     const itop = rect.y + neck;
     const segH = (ibot - itop) / CAP;
     const startY = ibot - item.t.length * segH;
-    
+
     for (let k = 0; k < numCoinsPerTube; k++) {
       const delay = k * 120 + Math.random() * 40; // fırlatma gecikmesi (staggered)
       const dur = 600 + Math.random() * 150;      // 600-750ms uçuş süresi
-      
+
       // Kavisli Bezier yolu için kontrol noktası (yukarı doğru yay çizer)
       const midX = (startX + targetX) / 2 + (Math.random() - 0.5) * 160;
       const midY = Math.min(startY, targetY) - 80 - Math.random() * 100;
-      
+
       // Artan küsurat değerlerini ilk birkaç sikkeye dağıt
       const val = baseVal + (remainder > 0 ? 1 : 0);
       if (remainder > 0) remainder--;
-      
+
       coinParticles.push({
         id: coinId++,
         startX,
@@ -591,7 +615,8 @@ function win() {
       });
     }
   });
-  
+
+  spawnConfetti();
   kick();
 }
 
@@ -631,7 +656,8 @@ function doUndo() {
 function doHint() {
   if (anims.length || won) return;
   if (S.coins < HINT_COST) return;
-  const sol = solveBFS(tubes, 30000);
+  let sol = solveBFS(tubes, 30000);
+  if (!sol) sol = solveDFS(tubes, 15000);
   if (!sol || !sol.length) return;
   hint = { from: sol[0][0], to: sol[0][1], until: performance.now() + 2600 };
   S.coins -= HINT_COST; save();
@@ -685,7 +711,7 @@ function layout() {
   const tubesBottom = bottomBar.y - 16;
 
   const T = tubes.length;
-  const rows = T <= 5 ? 1 : (T <= 10 ? 2 : 3);
+  const rows = T <= 5 ? 1 : 2;
   const perRow = Math.ceil(T / rows);
   const side = Math.max(14, W * 0.04);
   const gap = Math.max(8, W * 0.028);
@@ -729,44 +755,44 @@ function roundRectPath(x, y, w, h, r) {
 }
 function tubePath(x, y, w, h, rt, rb) {
   ctx.beginPath();
-  
+
   const lipExt = w * 0.06; // lip extends 6% of width on each side
   const lipH = h * 0.03;   // lip height is 3% of total height
   const lipR = Math.max(1.5, h * 0.006); // small rounding radius for the lip corners
-  
+
   // Start at left body edge, going up
   ctx.moveTo(x, y + h * 0.2);
   ctx.lineTo(x, y + lipH + lipR);
-  
+
   // Curve outward to the left under the lip
   ctx.arcTo(x, y + lipH, x - lipExt, y + lipH, lipR);
   ctx.lineTo(x - lipExt, y + lipH);
   ctx.lineTo(x - lipExt, y + lipR);
-  
+
   // Top-left outer corner of the lip
   ctx.arcTo(x - lipExt, y, x - lipExt + lipR, y, lipR);
-  
+
   // Top edge of the lip going right
   ctx.lineTo(x + w + lipExt - lipR, y);
-  
+
   // Top-right outer corner of the lip
   ctx.arcTo(x + w + lipExt, y, x + w + lipExt, y + lipR, lipR);
   ctx.lineTo(x + w + lipExt, y + lipH - lipR);
-  
+
   // Curve inward to the right body under the lip
   ctx.arcTo(x + w + lipExt, y + lipH, x + w, y + lipH, lipR);
   ctx.lineTo(x + w, y + lipH);
   ctx.lineTo(x + w, y + h - rb);
-  
+
   // Bottom-right corner of the tube
   ctx.arcTo(x + w, y + h, x + w - rb, y + h, rb);
-  
+
   // Bottom edge going left
   ctx.lineTo(x + rb, y + h);
-  
+
   // Bottom-left corner of the tube
   ctx.arcTo(x, y + h, x, y + h - rb, rb);
-  
+
   ctx.closePath();
 }
 function innerPath(ix, itop, iw, ibot, rb) {
@@ -788,28 +814,28 @@ function drawLiquidBand(x, w, top, height, ci, sprinkleKey, angle) {
   const rx_base = w / 2;
   const ry_base = Math.min(w * 0.08, height * 0.5);
   const botY = top + height;
-  
+
   ctx.save();
-  
+
   // Calculate rotation of the top cap to simulate horizontal surface under tilt
   const maxRot = Math.PI / 4; // Max 45 degrees
   const rotAngle = Math.max(-maxRot, Math.min(maxRot, -angle));
-  
+
   // To prevent the tilted top surface from intersecting the flat bottom cap of the segment
   // when the segment is very short (height is small), we limit the tilt angle.
   // The vertical offset dy must not exceed height * 0.8.
   const maxRotAngle = Math.atan((height * 0.8) / rx_base);
   const clampedRotAngle = Math.max(-maxRotAngle, Math.min(maxRotAngle, rotAngle));
-  
+
   const cosRot = Math.cos(clampedRotAngle);
-  
+
   // Adjust horizontal radius so the ellipse edges meet the tube walls at x and x + w
   const rx = rx_base / cosRot;
   const ry = ry_base;
-  
+
   // Vertical offset at the walls due to rotation
   const dy = rx_base * Math.tan(-clampedRotAngle);
-  
+
   // 1. Draw cylinder body and bottom cap (flat bottom, tilted top)
   ctx.beginPath();
   ctx.moveTo(x, top + dy);
@@ -820,20 +846,20 @@ function drawLiquidBand(x, w, top, height, ci, sprinkleKey, angle) {
   ctx.closePath();
   ctx.fillStyle = baseColor;
   ctx.fill();
-  
+
   // 2. Draw sprinkles
   drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey);
-  
+
   // 3. Draw top cap ellipse (rotated to match liquid tilt)
   ctx.beginPath();
   ctx.ellipse(x + rx_base, top, rx, ry, clampedRotAngle, 0, Math.PI * 2);
   ctx.fillStyle = baseColor;
   ctx.fill();
-  
+
   // Flat top cap face overlay (subtle tint to define the 3D surface)
   ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
   ctx.fill();
-  
+
   ctx.restore();
 }
 
@@ -849,7 +875,7 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
   ctx.beginPath();
   ctx.rect(x, top, w, height);
   ctx.clip();
-  
+
   // Sarı, kırmızı, lacivert ve mor için yüksek kontrastlı saf beyaz parıltı rengi
   const pColor = '#ffffff';
   ctx.strokeStyle = pColor;
@@ -870,7 +896,7 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
     const sy = top + height * (0.10 + fy * 0.80) + driftY;
     const len = Math.max(1.6, w * (0.025 + fv * 0.025));
     const twinkle = 0.22 + 0.42 * (0.5 + 0.5 * Math.sin(time * (1.5 + fv * 1.4) + seed + i * 1.7));
-    
+
     // Kırmızı, lacivert ve mor (koyu renkler) için daha yüksek, sarı için dengeli parlaklık
     ctx.globalAlpha = (ci === 6 || ci === 5 || ci === 8 ? 0.92 : 0.76) * twinkle;
 
@@ -934,7 +960,7 @@ function drawTube(R, spec) {
     const segBottom = ibot - s * segH;
     drawLiquidBand(ix, iw, segBottom - segH - 0.5, segH + 1, spec.units[s], R.i * 17 + s, 0);
   }
-  
+
   let currentBase = spec.units.length;
   if (spec.partialTops && spec.partialTops.length) {
     for (let k = 0; k < spec.partialTops.length; k++) {
@@ -966,7 +992,7 @@ function drawTube(R, spec) {
   const mouthRy = w * 0.065;
   const mouthCx = x + w / 2;
   const mouthCy = y;
-  
+
   ctx.beginPath();
   ctx.ellipse(mouthCx, mouthCy, mouthRx, mouthRy, 0, 0, Math.PI * 2);
   // Koyu iç delik
@@ -1029,7 +1055,7 @@ function drawCoinPill(P) {
   ctx.moveTo(px - pr * 0.5, py); ctx.lineTo(px + pr * 0.5, py);
   ctx.moveTo(px, py - pr * 0.5); ctx.lineTo(px, py + pr * 0.5);
   ctx.stroke();
-  
+
   ctx.restore();
 }
 
@@ -1127,26 +1153,31 @@ function drawAddBottle(cx, cy, r) {
   ctx.lineWidth = Math.max(2, r * 0.12);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  
+
   // Center the bottle inside the button
   const bw = r * 0.85;
   const bh = r * 1.5;
   const bx = cx - bw / 2;
-  const by = cy - bh / 2 + r * 0.05; // slightly offset down to balance the mouth
-  const rt = bw * 0.17;
-  const rb = bw * 0.46;
-  
-  // Draw the bottle body
-  tubePath(bx, by, bw, bh, rt, rb);
+  const by = cy - bh / 2 + r * 0.05; // offset down slightly to balance the mouth
+  const rb = bw * 0.40; // bottom corner radius
+
+  // Draw the bottle body without the top horizontal line (prevents double-drawing with mouth ellipse)
+  ctx.beginPath();
+  ctx.moveTo(bx, by);
+  ctx.lineTo(bx, by + bh - rb);
+  ctx.arcTo(bx, by + bh, bx + rb, by + bh, rb);
+  ctx.lineTo(bx + bw - rb, by + bh);
+  ctx.arcTo(bx + bw, by + bh, bx + bw, by + bh - rb, rb);
+  ctx.lineTo(bx + bw, by);
   ctx.stroke();
-  
-  // Draw the 3D mouth ellipse at the top to match the game design
-  const mouthRx = bw / 2 + bw * 0.06;
-  const mouthRy = bw * 0.07;
+
+  // Draw the mouth ellipse at the top
+  const mouthRx = bw / 2;
+  const mouthRy = bw * 0.10;
   ctx.beginPath();
   ctx.ellipse(cx, by, mouthRx, mouthRy, 0, 0, Math.PI * 2);
   ctx.stroke();
-  
+
   // Draw the plus (+) sign inside the bottle
   const plusSize = bw * 0.28;
   const plusCy = by + bh * 0.55; // centered in the body area
@@ -1219,7 +1250,7 @@ function draw(now) {
 
   if (transition) {
     const t_pct = Math.min(1, (now - transition.t0) / transition.dur);
-    
+
     if (t_pct >= 1.0) {
       const nextIdx = transition.toIdx;
       transition = null;
@@ -1228,19 +1259,19 @@ function draw(now) {
       startLevel(nextIdx);
       return;
     }
-    
+
     // Geçiş ekranı ızgarasını çiz
     ctx.fillStyle = THEME.bg;
     ctx.fillRect(0, 0, W, H);
-    
+
     const pose = getCameraPose(t_pct, transition.fromIdx, transition.toIdx);
     const gridOpacity = clamp01((1.0 - pose.scale) / 0.7);
-    
+
     ctx.save();
     ctx.translate(W / 2, H / 2);
     ctx.scale(pose.scale, pose.scale);
     ctx.translate(-pose.tx - W / 2, -pose.ty - H / 2);
-    
+
     for (let i = 0; i < LEVELS.length; i++) {
       drawLevelGridCell(i, i * W, 0, now, gridOpacity);
     }
@@ -1271,7 +1302,7 @@ function draw(now) {
     const spec = { units: tubes[i], partialTop: null, partialTops: [], lift: tubeLifts[i] || 0, glow: false, hint: false, tx: 0, ty: 0, angle: 0 };
     const outgoing = activeAnims.find(a => a.from === i);
     const incoming = activeAnims.filter(a => a.to === i);
-    
+
     if (outgoing) {
       Object.assign(spec, sourcePourPose(L.rects[outgoing.from], L.rects[outgoing.to], outgoing.p, L));
       spec.partialTop = { color: outgoing.color, frac: outgoing.n * (1 - outgoing.fillP) };
@@ -1283,25 +1314,25 @@ function draw(now) {
       spec.units = tubes[i].slice(0, tubes[i].length - totalN);
       spec.partialTops = incoming.map(a => ({ color: a.color, frac: a.n * a.fillP }));
     }
-    
+
     if (hint && (i === hint.from || i === hint.to)) spec.hint = true;
     drawTube(L.rects[i], spec);
   }
-  
+
   // ─── DÖKÜLME AKIŞ ÇİZGİSİ (Pouring Stream Animation) ───────────────────────
   for (const a of activeAnims) {
     if (a.p >= POUR_MOVE_END && a.p <= POUR_RETURN_START) {
       const fromR = L.rects[a.from];
       const toR = L.rects[a.to];
-      
+
       const fromCx = fromR.x + fromR.w / 2;
       const toCx = toR.x + toR.w / 2;
       const dir = fromCx <= toCx ? 1 : -1;
-      
+
       // Dökülen tüpün ağzının konumu
       const targetLipX = toCx - dir * toR.w * 0.24;
       const targetLipY = toR.y - Math.max(1, toR.w * 0.025);
-      
+
       // Hedef tüpteki sıvı seviyesinin konumu
       const wall = toR.w * 0.085;
       const ibot = toR.y + toR.h - wall;
@@ -1309,11 +1340,11 @@ function draw(now) {
       const neck = toR.h * 0.11;
       const itop = toR.y + neck;
       const segH = (ibot - itop) / CAP;
-      
+
       const targetUnits = tubes[a.to];
       const L_solid = targetUnits.length - a.n;
       const targetTopY = ibot - (L_solid * segH) - (segH * a.fillP);
-      
+
       // Akış çizgisini çiz (yuvarlatılmış uçlarla dikey hat)
       ctx.save();
       ctx.beginPath();
@@ -1338,6 +1369,25 @@ function draw(now) {
     }
   }
 
+  // Konfeti parçacıklarını çiz
+  if (confettiParticles.length > 0) {
+    ctx.save();
+    for (const p of confettiParticles) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size / 2);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  // Zafer Ekranı
+  if (showGameCompleteScreen) {
+    drawGameCompleteScreen();
+  }
+
   // toast
   if (toast.until > now && !won) {
     const tp = (now - toast.start) / (toast.until - toast.start);
@@ -1357,7 +1407,7 @@ let won_btn = null;
 // Bir şey hareket etmiyorsa (animasyon / parçacık / toast / ipucu / zafer)
 // döngü durur; tek kare çizilip beklenir. Girişte kick() ile yeniden başlar.
 function animating(now) {
-  return anims.length > 0 || transition !== null || hasAnimatedSprinkles() || won || toast.until > now || (hint && hint.until > now) || coinParticles.length > 0;
+  return anims.length > 0 || transition !== null || hasAnimatedSprinkles() || won || toast.until > now || (hint && hint.until > now) || coinParticles.length > 0 || confettiParticles.length > 0 || showGameCompleteScreen;
 }
 function loop(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
@@ -1370,7 +1420,7 @@ function loop(now) {
     const targetX = L.coinPill.x + L.coinPill.h * 0.5 + 15;
     const targetY = L.coinPill.y + L.coinPill.h / 2;
     let allLanded = true;
-    
+
     for (const p of coinParticles) {
       if (now < p.t0) {
         allLanded = false; // henüz uçuşa başlamadı
@@ -1392,185 +1442,253 @@ function loop(now) {
         }
       }
     }
-    
+
     // Kasa ölçeğini yavaşça normale döndür (sönümle)
     if (window.coinPillScale > 1.0) {
       window.coinPillScale -= dt * 1.8;
       if (window.coinPillScale < 1.0) window.coinPillScale = 1.0;
     }
-    
+
     if (allLanded) {
       coinParticles = [];
       window.visualCoins = undefined;
       window.coinPillScale = 1.0;
-      nextLevel();
+      if (S.levelIndex === LEVELS.length - 1) {
+        showGameCompleteScreen = true;
+      } else {
+        nextLevel();
+      }
     }
   }
 
-  let liftsChanged = false;
-  for (let i = 0; i < tubes.length; i++) {
-    const target = (i === selected) ? 16 : 0;
-    const current = tubeLifts[i] || 0;
-    if (Math.abs(current - target) > 0.05) {
-      // Lerp smoothly towards target
-      tubeLifts[i] = current + (target - current) * (1 - Math.exp(-14 * dt));
-      liftsChanged = true;
+  // Konfeti fizik motoru
+  if (confettiParticles.length > 0) {
+    for (const p of confettiParticles) {
+      p.y += p.vy * dt;
+      p.sway += p.swaySpeed * dt;
+      p.x += Math.sin(p.sway) * p.swayWidth * dt + p.vx * dt;
+      p.vx *= 0.95;
+      p.rotation += p.rotationSpeed * dt;
+    }
+    confettiParticles = confettiParticles.filter(p => p.y < H + 20);
+
+    // Zafer ekranındayken yeni konfetiler fırlatarak gökyüzünü canlı tut
+    if (showGameCompleteScreen && confettiParticles.length < 80) {
+      const colors = ['#ffcf3f', '#e5379c', '#3fa9e8', '#51cf66', '#f0862e', '#a544c9', '#20c4c4'];
+      for (let i = 0; i < 2; i++) {
+        confettiParticles.push({
+          x: Math.random() * W,
+          y: -20,
+          vx: (Math.random() - 0.5) * 100,
+          vy: 120 + Math.random() * 200,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: 6 + Math.random() * 8,
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 8,
+          sway: Math.random() * Math.PI * 2,
+          swaySpeed: 2 + Math.random() * 4,
+          swayWidth: 10 + Math.random() * 20,
+        });
+      }
+    }
+  }
+
+    let liftsChanged = false;
+    for (let i = 0; i < tubes.length; i++) {
+      const target = (i === selected) ? 16 : 0;
+      const current = tubeLifts[i] || 0;
+      if (Math.abs(current - target) > 0.05) {
+        // Lerp smoothly towards target
+        tubeLifts[i] = current + (target - current) * (1 - Math.exp(-14 * dt));
+        liftsChanged = true;
+      } else {
+        tubeLifts[i] = target;
+      }
+    }
+
+    draw(now);
+    if (animating(now) || liftsChanged) requestAnimationFrame(loop);
+    else running = false;
+  }
+  function kick() {
+    if (running) return;
+    running = true;
+    last = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  // ─── GİRİŞ ───────────────────────────────────────────────────────────────────
+  function inRect(px, py, r, pad) {
+    pad = pad || 0;
+    return px >= r.x - pad && px <= r.x + r.w + pad && py >= r.y - pad && py <= r.y + r.h + pad;
+  }
+  function inCircle(px, py, x, y, r) { const dx = px - x, dy = py - y; return dx * dx + dy * dy <= r * r; }
+
+  function tubeAt(px, py, L) {
+    for (const r of L.rects) if (inRect(px, py, r, 4)) return r.i;
+    return -1;
+  }
+
+  function onTap(px, py) {
+    if (transition) {
+      const now = performance.now();
+      if (now - lastTransitionTap < 300) {
+        if (!transition.spedUp) {
+          transition.spedUp = true;
+          const P = Math.min(1, (now - transition.t0) / transition.dur);
+          transition.dur = 700;
+          transition.t0 = now - P * transition.dur;
+        }
+      }
+      lastTransitionTap = now;
+      return;
+    }
+    const L = layout();
+
+    if (showGameCompleteScreen) {
+      if (winAgainBtn && inRect(px, py, winAgainBtn, 5)) {
+        showGameCompleteScreen = false;
+        confettiParticles = [];
+        S.levelIndex = 0;
+        S.solvedCount = 0;
+        S.solvedStates = [];
+        save();
+        levelTeaserCache = {};
+        levelTeaserCache[0] = makeLevel(0);
+        startLevel(0);
+        kick();
+      }
+      return;
+    }
+
+    if (won) {
+      return;
+    }
+    if (inCircle(px, py, L.restart.x, L.restart.y, L.restart.r * 1.3)) return doRestart();
+    if (inCircle(
+      px,
+      py,
+      L.coinPill.x + L.coinPill.w - L.coinPill.h * 0.5,
+      L.coinPill.y + L.coinPill.h / 2,
+      L.coinPill.h * 0.46
+    )) return doCoinBonus();
+
+    for (const b of L.btns) {
+      if (inRect(px, py, b)) {
+        if (b.id === 'hint') return doHint();
+        if (b.id === 'undo') return doUndo();
+        if (b.id === 'add') return doAdd();
+      }
+    }
+
+    const idx = tubeAt(px, py, L);
+    if (idx < 0) { selected = -1; return; }
+
+    if (selected < 0) {
+      if (tubes[idx].length) selected = idx;
+    } else if (idx === selected) {
+      selected = -1;
     } else {
-      tubeLifts[i] = target;
+      if (tryPour(selected, idx)) selected = -1;
+      else selected = tubes[idx].length ? idx : -1;
     }
   }
 
-  draw(now);
-  if (animating(now) || liftsChanged) requestAnimationFrame(loop);
-  else running = false;
-}
-function kick() {
-  if (running) return;
-  running = true;
-  last = performance.now();
-  requestAnimationFrame(loop);
-}
-
-// ─── GİRİŞ ───────────────────────────────────────────────────────────────────
-function inRect(px, py, r, pad) {
-  pad = pad || 0;
-  return px >= r.x - pad && px <= r.x + r.w + pad && py >= r.y - pad && py <= r.y + r.h + pad;
-}
-function inCircle(px, py, x, y, r) { const dx = px - x, dy = py - y; return dx * dx + dy * dy <= r * r; }
-
-function tubeAt(px, py, L) {
-  for (const r of L.rects) if (inRect(px, py, r, 4)) return r.i;
-  return -1;
-}
-
-function onTap(px, py) {
-  if (transition) return;
-  const L = layout();
-
-  if (won) {
-    return;
-  }
-  if (inCircle(px, py, L.restart.x, L.restart.y, L.restart.r * 1.3)) return doRestart();
-  if (inCircle(
-    px,
-    py,
-    L.coinPill.x + L.coinPill.w - L.coinPill.h * 0.5,
-    L.coinPill.y + L.coinPill.h / 2,
-    L.coinPill.h * 0.46
-  )) return doCoinBonus();
-
-  for (const b of L.btns) {
-    if (inRect(px, py, b)) {
-      if (b.id === 'hint') return doHint();
-      if (b.id === 'undo') return doUndo();
-      if (b.id === 'add') return doAdd();
-    }
-  }
-
-  const idx = tubeAt(px, py, L);
-  if (idx < 0) { selected = -1; return; }
-
-  if (selected < 0) {
-    if (tubes[idx].length) selected = idx;
-  } else if (idx === selected) {
-    selected = -1;
-  } else {
-    if (tryPour(selected, idx)) selected = -1;
-    else selected = tubes[idx].length ? idx : -1;
-  }
-}
-
-canvas.addEventListener('pointerdown', (e) => {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  onTap(e.clientX - rect.left, e.clientY - rect.top);
-  kick();
-}, { passive: false });
-
-window.addEventListener('keydown', (e) => {
-  if (transition) return;
-  const k = e.key.toLowerCase();
-  if (k === 'r') doRestart();
-  else if (k === 'u') doUndo();
-  else if (k === 'h') doHint();
-  else if (k === 'escape') selected = -1;
-  else if (k === 'enter' && won) nextLevel();
-  kick();
-});
-
-// ─── BAŞLAT ──────────────────────────────────────────────────────────────────
-levelTeaserCache[S.levelIndex] = makeLevel(S.levelIndex);
-startLevel(S.levelIndex);
-
-// ─── Geliştirici Hilesi (Developer Cheat Button) ──────────────────────────────
-function cheatOneMoveLeft() {
-  if (won || anims.length) return;
-  
-  // Mevcut durumdan çözümü bulmaya çalış
-  let path = solveBFS(tubes, 30000);
-  
-  // Eğer çözülemez bir durumdaysak önce bölümü sıfırla, sonra çöz
-  if (!path) {
-    tubes = makeLevel(S.levelIndex);
-    selected = -1;
-    history = [];
-    extraTubes = 0;
-    anims = [];
-    hint = null;
-    tubeLifts = new Array(tubes.length).fill(0);
-    path = solveBFS(tubes, 30000);
-  }
-  
-  if (path && path.length > 0) {
-    // Son 1 hamle hariç tüm hamleleri hemen uygula
-    const movesToApply = path.length - 1;
-    for (let i = 0; i < movesToApply; i++) {
-      const m = path[i];
-      const moveObj = { from: m[0], to: m[1], n: m[2] };
-      applyMove(tubes, moveObj);
-    }
-    // Geçmişi temizle
-    history = [];
-    selected = -1;
-    hint = null;
-    showToast('Son 1 hamle kaldı!', THEME.gold, 1500);
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    onTap(e.clientX - rect.left, e.clientY - rect.top);
     kick();
-  } else {
-    showToast('Zaten çözülmüş!', THEME.dim, 1500);
-  }
-}
+  }, { passive: false });
 
-function doAutoSolveMove() {
-  if (won || anims.length || transition) return;
-  if (S.coins < 1) {
-    showToast('Yetersiz altın!', THEME.gold, 1500);
-    return;
-  }
-  
-  // Mevcut durumdan çözümü bulmaya çalış
-  const path = solveBFS(tubes, 30000);
-  if (path && path.length > 0) {
-    const nextMove = path[0];
-    const from = nextMove[0];
-    const to = nextMove[1];
-    
-    // Doğru hamleyi oyuna uygula (bu fonksiyon pour animasyonunu tetikler)
-    if (tryPour(from, to, 5.0)) {
-      S.coins -= 1;
-      save();
-      showToast('-1 Altın (Oto Hamle)', THEME.gold, 1000);
-      kick();
+  window.addEventListener('keydown', (e) => {
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+    if (transition) return;
+    const k = e.key.toLowerCase();
+    if (k === 'r') doRestart();
+    else if (k === 'u') doUndo();
+    else if (k === 'h') doHint();
+    else if (k === 'escape') selected = -1;
+    else if (k === 'enter' && won) nextLevel();
+    kick();
+  });
+
+  // ─── BAŞLAT ──────────────────────────────────────────────────────────────────
+  levelTeaserCache[S.levelIndex] = makeLevel(S.levelIndex);
+  startLevel(S.levelIndex);
+
+  // ─── Geliştirici Hilesi (Developer Cheat Button) ──────────────────────────────
+  function cheatOneMoveLeft() {
+    if (won || anims.length) return;
+
+    // Mevcut durumdan çözümü bulmaya çalış
+    let path = solveBFS(tubes, 30000);
+    if (!path) path = solveDFS(tubes, 15000);
+
+    // Eğer çözülemez bir durumdaysak önce bölümü sıfırla, sonra çöz
+    if (!path) {
+      tubes = makeLevel(S.levelIndex);
+      selected = -1;
+      history = [];
+      extraTubes = 0;
+      anims = [];
+      hint = null;
+      tubeLifts = new Array(tubes.length).fill(0);
+      path = solveBFS(tubes, 30000);
+      if (!path) path = solveDFS(tubes, 15000);
     }
-  } else {
-    showToast('Çözüm bulunamadı!', THEME.dim, 1500);
-  }
-}
 
-// Hile Butonunu oluştur ve ekle
-const devBtn = document.createElement('button');
-devBtn.id = 'devSolveBtn';
-devBtn.textContent = 'Hile: Son Hamle';
-devBtn.style.cssText = `
+    if (path && path.length > 0) {
+      // Son 1 hamle hariç tüm hamleleri hemen uygula
+      const movesToApply = path.length - 1;
+      for (let i = 0; i < movesToApply; i++) {
+        const m = path[i];
+        const moveObj = { from: m[0], to: m[1], n: m[2] };
+        applyMove(tubes, moveObj);
+      }
+      // Geçmişi temizle
+      history = [];
+      selected = -1;
+      hint = null;
+      showToast('Son 1 hamle kaldı!', THEME.gold, 1500);
+      kick();
+    } else {
+      showToast('Zaten çözülmüş!', THEME.dim, 1500);
+    }
+  }
+
+  function doAutoSolveMove() {
+    if (won || anims.length || transition) return;
+    if (S.coins < 1) {
+      showToast('Yetersiz altın!', THEME.gold, 1500);
+      return;
+    }
+
+    // Mevcut durumdan çözümü bulmaya çalış
+    let path = solveBFS(tubes, 30000);
+    if (!path) path = solveDFS(tubes, 15000);
+    if (path && path.length > 0) {
+      const nextMove = path[0];
+      const from = nextMove[0];
+      const to = nextMove[1];
+
+      // Doğru hamleyi oyuna uygula (bu fonksiyon pour animasyonunu tetikler)
+      if (tryPour(from, to, 5.0)) {
+        S.coins -= 1;
+        save();
+        showToast('-1 Altın (Oto Hamle)', THEME.gold, 1000);
+        kick();
+      }
+    } else {
+      showToast('Çözüm bulunamadı!', THEME.dim, 1500);
+    }
+  }
+
+  // Hile Butonunu oluştur ve ekle
+  const devBtn = document.createElement('button');
+  devBtn.id = 'devSolveBtn';
+  devBtn.textContent = 'Hile: Son Hamle';
+  devBtn.style.cssText = `
   position: fixed;
   bottom: 120px;
   right: 20px;
@@ -1588,18 +1706,18 @@ devBtn.style.cssText = `
   touch-action: auto;
   transition: opacity 0.15s;
 `;
-document.body.appendChild(devBtn);
+  document.body.appendChild(devBtn);
 
-devBtn.addEventListener('click', cheatOneMoveLeft);
-devBtn.addEventListener('touchstart', (e) => {
-  e.stopPropagation();
-}, { passive: true });
+  devBtn.addEventListener('click', cheatOneMoveLeft);
+  devBtn.addEventListener('touchstart', (e) => {
+    e.stopPropagation();
+  }, { passive: true });
 
-// Oto Çözüm Deneme Butonunu oluştur ve ekle
-const autoBtn = document.createElement('button');
-autoBtn.id = 'autoSolveBtn';
-autoBtn.textContent = 'Oto Çözüm (1 Altın)';
-autoBtn.style.cssText = `
+  // Oto Çözüm Deneme Butonunu oluştur ve ekle
+  const autoBtn = document.createElement('button');
+  autoBtn.id = 'autoSolveBtn';
+  autoBtn.textContent = 'Oto Çözüm (1 Altın)';
+  autoBtn.style.cssText = `
   position: fixed;
   bottom: 170px;
   right: 20px;
@@ -1617,10 +1735,164 @@ autoBtn.style.cssText = `
   touch-action: auto;
   transition: opacity 0.15s;
 `;
-document.body.appendChild(autoBtn);
+  document.body.appendChild(autoBtn);
 
-autoBtn.addEventListener('click', doAutoSolveMove);
-autoBtn.addEventListener('touchstart', (e) => {
-  e.stopPropagation();
-}, { passive: true });
+  autoBtn.addEventListener('click', doAutoSolveMove);
+  autoBtn.addEventListener('touchstart', (e) => {
+    e.stopPropagation();
+  }, { passive: true });
 
+  // Hile: Seviye Atlama Input'u
+  const devInput = document.createElement('input');
+  devInput.id = 'devLevelInput';
+  devInput.type = 'number';
+  devInput.min = '1';
+  devInput.max = String(LEVELS.length);
+  devInput.placeholder = 'Lvl: 1-' + LEVELS.length;
+  devInput.style.cssText = `
+  position: fixed;
+  bottom: 70px;
+  right: 20px;
+  width: 90px;
+  padding: 8px 10px;
+  background: rgba(20, 26, 56, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  color: #fff;
+  font-family: 'Segoe UI', sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  outline: none;
+  text-align: center;
+`;
+  document.body.appendChild(devInput);
+
+  devInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const lvlNum = parseInt(devInput.value, 10);
+      if (!isNaN(lvlNum) && lvlNum >= 1 && lvlNum <= LEVELS.length) {
+        const targetIdx = lvlNum - 1;
+
+        // Seviyeyi ayarla
+        S.levelIndex = targetIdx;
+        save();
+
+        // Teaser önbelleğini temizle ve yeni bölümü üreterek başlat
+        levelTeaserCache = {};
+        levelTeaserCache[targetIdx] = makeLevel(targetIdx);
+
+        // Geçiş durumlarını sıfırla, direkt yeni bölüme başla
+        transition = null;
+        showGameCompleteScreen = false;
+        confettiParticles = [];
+        startLevel(targetIdx);
+
+        showToast('Seviye ' + lvlNum + ' yüklendi!', THEME.win, 1500);
+        devInput.value = ''; // temizle
+        devInput.blur();     // odağı kaldır
+        kick();
+      } else {
+        showToast('Geçersiz Seviye!', THEME.lose, 1500);
+      }
+    }
+  });
+  devInput.addEventListener('touchstart', (e) => {
+    e.stopPropagation();
+  }, { passive: true });
+
+  // ─── ZAFER EKRANI YARDIMCILARI ────────────────────────────────────────────────
+  function drawGoldStar(cx, cy, r) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.fillStyle = '#ffcf3f';
+    ctx.shadowColor = '#ffcf3f';
+    ctx.shadowBlur = 15;
+    for (let i = 0; i < 5; i++) {
+      ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * r + cx,
+        -Math.sin((18 + i * 72) * Math.PI / 180) * r + cy);
+      ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (r * 0.4) + cx,
+        -Math.sin((54 + i * 72) * Math.PI / 180) * (r * 0.4) + cy);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function spawnConfetti() {
+    confettiParticles = [];
+    const colors = ['#ffcf3f', '#e5379c', '#3fa9e8', '#51cf66', '#f0862e', '#a544c9', '#20c4c4'];
+    for (let i = 0; i < 150; i++) {
+      confettiParticles.push({
+        x: Math.random() * W,
+        y: -20 - Math.random() * 100,
+        vx: (Math.random() - 0.5) * 200,
+        vy: 150 + Math.random() * 250,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: 6 + Math.random() * 8,
+        rotation: Math.random() * Math.PI * 2,
+        rotationSpeed: (Math.random() - 0.5) * 10,
+        sway: Math.random() * Math.PI * 2,
+        swaySpeed: 2 + Math.random() * 4,
+        swayWidth: 10 + Math.random() * 20,
+      });
+    }
+  }
+
+  function drawGameCompleteScreen() {
+    ctx.fillStyle = 'rgba(12, 10, 32, 0.82)';
+    ctx.fillRect(0, 0, W, H);
+
+    const boxW = Math.min(340, W * 0.85);
+    const boxH = Math.min(270, H * 0.48);
+    const boxX = W / 2 - boxW / 2;
+    const boxY = H / 2 - boxH / 2;
+
+    // Glassmorphism Card
+    roundRectPath(boxX, boxY, boxW, boxH, 20);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.stroke();
+
+    // Trophy Star
+    const starY = boxY + 46;
+    drawGoldStar(W / 2, starY, 26);
+
+    // Title
+    ctx.fillStyle = '#ffcf3f';
+    ctx.font = `800 ${Math.floor(boxW * 0.082)}px 'Segoe UI', sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('TEBRİKLER!', W / 2, boxY + 105);
+
+    // Subtitle
+    ctx.fillStyle = '#f2f5ff';
+    ctx.font = `800 ${Math.floor(boxW * 0.046)}px 'Segoe UI', sans-serif`;
+    ctx.fillText('Tüm Bölümleri Tamamladınız!', W / 2, boxY + 148);
+
+    // Text
+    ctx.fillStyle = '#8b93b5';
+    ctx.font = `600 ${Math.floor(boxW * 0.038)}px 'Segoe UI', sans-serif`;
+    ctx.fillText('Harika bir sıralama ustasısın.', W / 2, boxY + 178);
+
+    // Button
+    const btnW = boxW * 0.68;
+    const btnH = 46;
+    const btnX = W / 2 - btnW / 2;
+    const btnY = boxY + boxH - 65;
+
+    roundRectPath(btnX, btnY, btnW, btnH, 12);
+    ctx.fillStyle = '#51cf66';
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.stroke();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = `800 ${Math.floor(btnH * 0.35)}px 'Segoe UI', sans-serif`;
+    ctx.fillText('BAŞTAN BAŞLA', W / 2, btnY + btnH / 2);
+
+    winAgainBtn = { x: btnX, y: btnY, w: btnW, h: btnH };
+  }
