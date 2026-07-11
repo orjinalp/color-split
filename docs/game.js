@@ -172,6 +172,7 @@ save();
 // Çalışma zamanı (kalıcı değil)
 let tubes = [];
 let selected = -1;
+let tubeLifts = [];
 let history = [];
 let extraTubes = 0;
 let anims = [];               // { from, to, n, color, t0, dur }[]
@@ -191,6 +192,7 @@ function startLevel(i) {
   tubes = makeLevel(i);
   selected = -1; history = []; extraTubes = 0;
   anims = []; hint = null; won = false;
+  tubeLifts = new Array(tubes.length).fill(0);
   kick();
 }
 
@@ -287,6 +289,7 @@ function doAdd() {
   if (extraTubes >= MAX_EXTRA) { showToast('Daha fazla şişe eklenemez', THEME.dim); return; }
   if (S.coins < ADD_COST) return;
   tubes.push([]); extraTubes++;
+  tubeLifts.push(0);
   S.coins -= ADD_COST; save();
 }
 
@@ -373,15 +376,52 @@ function roundRectPath(x, y, w, h, r) {
 }
 function tubePath(x, y, w, h, rt, rb) {
   ctx.beginPath();
-  ctx.moveTo(x + rt, y);
-  ctx.lineTo(x + w - rt, y);
-  ctx.arcTo(x + w, y, x + w, y + rt, rt);
+  
+  // Calculate relative sizes for the bottle neck and lip
+  const lipW = w * 0.64;
+  const lipX = x + (w - lipW) / 2;
+  const lipH = h * 0.03;
+  const lipR = h * 0.01;
+  
+  const neckW = w * 0.52;
+  const neckX = x + (w - neckW) / 2;
+  const neckY = y + h * 0.12;
+  
+  // Start at bottom-left of the lip (rim)
+  ctx.moveTo(lipX, y + lipH);
+  ctx.lineTo(lipX, y + lipR);
+  ctx.arcTo(lipX, y, lipX + lipR, y, lipR);
+  
+  // Top-right lip
+  ctx.lineTo(lipX + lipW - lipR, y);
+  ctx.arcTo(lipX + lipW, y, lipX + lipW, y + lipR, lipR);
+  ctx.lineTo(lipX + lipW, y + lipH);
+  
+  // Inner corner right (neck start)
+  ctx.arcTo(neckX + neckW, y + lipH, neckX + neckW, y + lipH + lipR, lipR);
+  ctx.lineTo(neckX + neckW, neckY);
+  
+  // Shoulder curve right
+  ctx.quadraticCurveTo(neckX + neckW, y + h * 0.16, x + w, y + h * 0.17);
+  
+  // Body right side to bottom right
   ctx.lineTo(x + w, y + h - rb);
   ctx.arcTo(x + w, y + h, x + w - rb, y + h, rb);
+  
+  // Bottom edge to bottom left
   ctx.lineTo(x + rb, y + h);
   ctx.arcTo(x, y + h, x, y + h - rb, rb);
-  ctx.lineTo(x, y + rt);
-  ctx.arcTo(x, y, x + rt, y, rt);
+  
+  // Body left side up to shoulder
+  ctx.lineTo(x, y + h * 0.17);
+  
+  // Shoulder curve left
+  ctx.quadraticCurveTo(neckX, y + h * 0.16, neckX, neckY);
+  
+  // Neck left side up to lip
+  ctx.lineTo(neckX, y + lipH + lipR);
+  ctx.arcTo(lipX, y + lipH, lipX, y + lipH - lipR, lipR);
+  
   ctx.closePath();
 }
 function innerPath(ix, itop, iw, ibot, rb) {
@@ -471,7 +511,7 @@ function drawTube(R, spec) {
 
   const wall = w * 0.085;
   const rt = w * 0.17, rb = w * 0.46;
-  const neck = h * 0.10;
+  const neck = h * 0.17;
   const ix = x + wall, iw = w - 2 * wall;
   const itop = y + neck, ibot = y + h - wall;
   const irb = Math.max(2, rb - wall);
@@ -728,7 +768,7 @@ function draw(now) {
   const sourceOverlays = [];
 
   for (let i = 0; i < tubes.length; i++) {
-    const spec = { units: tubes[i], partialTop: null, lift: 0, glow: false, hint: false, tx: 0, ty: 0, angle: 0 };
+    const spec = { units: tubes[i], partialTop: null, lift: tubeLifts[i] || 0, glow: false, hint: false, tx: 0, ty: 0, angle: 0 };
     const moving = activeAnims.find(a => a.from === i || a.to === i);
     if (moving) {
       if (i === moving.from) {
@@ -740,8 +780,6 @@ function draw(now) {
         spec.units = tubes[i].slice(0, tubes[i].length - moving.n);
         spec.partialTop = { color: moving.color, frac: moving.n * moving.fillP };
       }
-    } else if (i === selected) {
-      spec.lift = 16; spec.glow = true;
     }
     if (hint && (i === hint.from || i === hint.to)) spec.hint = true;
     drawTube(L.rects[i], spec);
@@ -793,10 +831,25 @@ function animating(now) {
   return anims.length > 0 || hasAnimatedSprinkles() || won || toast.until > now || (hint && hint.until > now);
 }
 function loop(now) {
+  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000));
   last = now;
   if (anims.some(a => now - a.t0 >= a.dur)) finishAnimations(now);
+
+  let liftsChanged = false;
+  for (let i = 0; i < tubes.length; i++) {
+    const target = (i === selected) ? 16 : 0;
+    const current = tubeLifts[i] || 0;
+    if (Math.abs(current - target) > 0.05) {
+      // Lerp smoothly towards target
+      tubeLifts[i] = current + (target - current) * (1 - Math.exp(-14 * dt));
+      liftsChanged = true;
+    } else {
+      tubeLifts[i] = target;
+    }
+  }
+
   draw(now);
-  if (animating(now)) requestAnimationFrame(loop);
+  if (animating(now) || liftsChanged) requestAnimationFrame(loop);
   else running = false;
 }
 function kick() {
