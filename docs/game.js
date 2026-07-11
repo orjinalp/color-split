@@ -751,10 +751,7 @@ function drawLiquidBand(x, w, top, height, ci, sprinkleKey, angle) {
 function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
   if (height < 10 || (ci !== 3 && ci !== 6)) return;
 
-  let count = Math.max(9, Math.min(18, Math.floor((w * height) / 220)));
-  if (ci === 6) {
-    count = Math.round(count * 2.1); // Kırmızıda sayı daha da artırıldı (2.1x)
-  }
+  const count = Math.max(12, Math.min(22, Math.floor((w * height) / 180)));
 
   // Tıklayınca zıplamaması için koordinatlardan (top, height) bağımsız sabit seed
   const seed = (ci + 1) * 977 + sprinkleKey * 131;
@@ -764,8 +761,8 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
   ctx.rect(x, top, w, height);
   ctx.clip();
   
-  // Kırmızı için daha parlak saf beyaz, sarı için krem beyazı
-  const pColor = ci === 6 ? '#ffffff' : '#fff7e8';
+  // Hem kırmızı hem de sarı için yüksek kontrastlı saf beyaz parıltı rengi
+  const pColor = '#ffffff';
   ctx.strokeStyle = pColor;
   ctx.fillStyle = pColor;
   ctx.lineCap = 'round';
@@ -780,15 +777,15 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
     const fv = c - Math.floor(c);
     const driftX = Math.sin(time * (0.45 + fv * 0.45) + seed + i) * w * 0.045;
     const driftY = Math.cos(time * (0.38 + fv * 0.38) + seed * 0.7 + i) * height * 0.07;
-    const sx = x + w * (0.2 + fx * 0.6) + driftX;
-    const sy = top + height * (0.2 + fy * 0.6) + driftY;
-    const len = Math.max(2.2, w * (0.055 + fv * 0.055));
+    const sx = x + w * (0.12 + fx * 0.76) + driftX;
+    const sy = top + height * (0.10 + fy * 0.80) + driftY;
+    const len = Math.max(1.6, w * (0.025 + fv * 0.025));
     const twinkle = 0.22 + 0.42 * (0.5 + 0.5 * Math.sin(time * (1.5 + fv * 1.4) + seed + i * 1.7));
     
-    // Kırmızı partiküllerin opaklığı (parlaklığı) daha da artırıldı
-    ctx.globalAlpha = (ci === 6 ? 0.82 : 0.45) * twinkle;
+    // Genel partikül opaklığı (parlaklığı) daha da artırıldı
+    ctx.globalAlpha = (ci === 6 ? 0.92 : 0.76) * twinkle;
 
-    if (fv < 0.34) {
+    if (fv < 0.82) {
       ctx.beginPath();
       ctx.arc(sx, sy, Math.max(0.8, w * (0.012 + fv * 0.012)), 0, Math.PI * 2);
       ctx.fill();
