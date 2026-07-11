@@ -749,7 +749,7 @@ function drawLiquidBand(x, w, top, height, ci, sprinkleKey, angle) {
 }
 
 function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
-  if (height < 10 || (ci !== 3 && ci !== 6)) return;
+  if (height < 10 || (ci !== 3 && ci !== 5 && ci !== 6 && ci !== 8)) return;
 
   const count = Math.max(12, Math.min(22, Math.floor((w * height) / 180)));
 
@@ -761,7 +761,7 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
   ctx.rect(x, top, w, height);
   ctx.clip();
   
-  // Hem kırmızı hem de sarı için yüksek kontrastlı saf beyaz parıltı rengi
+  // Sarı, kırmızı, lacivert ve mor için yüksek kontrastlı saf beyaz parıltı rengi
   const pColor = '#ffffff';
   ctx.strokeStyle = pColor;
   ctx.fillStyle = pColor;
@@ -782,8 +782,8 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
     const len = Math.max(1.6, w * (0.025 + fv * 0.025));
     const twinkle = 0.22 + 0.42 * (0.5 + 0.5 * Math.sin(time * (1.5 + fv * 1.4) + seed + i * 1.7));
     
-    // Genel partikül opaklığı (parlaklığı) daha da artırıldı
-    ctx.globalAlpha = (ci === 6 ? 0.92 : 0.76) * twinkle;
+    // Kırmızı, lacivert ve mor (koyu renkler) için daha yüksek, sarı için dengeli parlaklık
+    ctx.globalAlpha = (ci === 6 || ci === 5 || ci === 8 ? 0.92 : 0.76) * twinkle;
 
     if (fv < 0.82) {
       ctx.beginPath();
@@ -801,8 +801,8 @@ function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
 }
 
 function hasAnimatedSprinkles() {
-  if (anims.some(a => a.color === 3 || a.color === 6)) return true;
-  return tubes.some(t => t.some(c => c === 3 || c === 6));
+  if (anims.some(a => a.color === 3 || a.color === 5 || a.color === 6 || a.color === 8)) return true;
+  return tubes.some(t => t.some(c => c === 3 || c === 5 || c === 6 || c === 8));
 }
 
 // ─── ÇİZİM: şişe (düz) ───────────────────────────────────────────────────────
