@@ -17,18 +17,18 @@ const THEME = {
   bar:    '#232a52',   // alt bar — düz panel
 };
 
-// Sıvı renk paleti (canlı, birbirinden iyi ayrışan tonlar).
+// Sıvı renk paleti (canlı, birbirinden iyi ayrışan ve modern pastel-neon tonlar).
 const COLORS = [
-  '#3fa9e8', // 0 gök mavisi
-  '#f0862e', // 1 turuncu
-  '#1f7a2e', // 2 koyu yeşil
-  '#f4c724', // 3 sarı
-  '#9bd64f', // 4 fıstık yeşili
-  '#3d63d6', // 5 kraliyet mavisi
-  '#e8434a', // 6 kırmızı
-  '#e85fb0', // 7 pembe
-  '#a544c9', // 8 mor
-  '#20c4c4', // 9 turkuaz
+  '#22d3ee', // 0 Gökyüzü Mavisi (Vibrant Neon Cyan)
+  '#fb923c', // 1 Turuncu (Vibrant Neon Orange)
+  '#4ade80', // 2 Canlı Yeşil (Vibrant Candy Green)
+  '#facc15', // 3 Altın Sarısı (Vibrant Golden Yellow)
+  '#a3e635', // 4 Fıstık Yeşili (Electric Lime Green)
+  '#6366f1', // 5 Çivit Mavisi (Electric Indigo Blue)
+  '#f87171', // 6 Mercan Kırmızısı (Vibrant Coral Red)
+  '#ec4899', // 7 Şeker Pembe (Vibrant Bubblegum Pink)
+  '#c084fc', // 8 Menekşe Moru (Vibrant Violet Purple)
+  '#2dd4bf', // 9 Canlı Turkuaz (Vibrant Luminous Teal)
 ];
 
 // ─── BÖLÜMLER ────────────────────────────────────────────────────────────────
@@ -340,7 +340,7 @@ function layout() {
   const tw = Math.max(20, Math.min(rawTw, 74));
   const areaH = Math.max(120, tubesBottom - tubesTop);
   const rowH = areaH / rows;
-  const th = Math.max(70, Math.min(tw * 3.5, rowH * 0.86));
+  const th = Math.max(70, Math.min(tw * 3.1, rowH * 0.86));
 
   const rects = [];
   for (let i = 0; i < T; i++) {
@@ -418,8 +418,9 @@ function tubePath(x, y, w, h, rt, rb) {
 }
 function innerPath(ix, itop, iw, ibot, rb) {
   ctx.beginPath();
-  ctx.moveTo(ix, itop);
-  ctx.lineTo(ix + iw, itop);
+  const ry = iw * 0.08;
+  ctx.moveTo(ix, itop - ry);
+  ctx.lineTo(ix + iw, itop - ry);
   ctx.lineTo(ix + iw, ibot - rb);
   ctx.arcTo(ix + iw, ibot, ix + iw - rb, ibot, rb);
   ctx.lineTo(ix + rb, ibot);
@@ -428,9 +429,39 @@ function innerPath(ix, itop, iw, ibot, rb) {
 }
 
 function drawLiquidBand(x, w, top, height, ci, sprinkleKey) {
-  ctx.fillStyle = COLORS[ci];
-  ctx.fillRect(x, top, w, height);
-  drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey || 0);
+  if (height <= 0.5) return;
+  const baseColor = COLORS[ci];
+  const rx = w / 2;
+  const ry = Math.min(w * 0.08, height * 0.5);
+  const botY = top + height;
+  
+  ctx.save();
+  
+  // 1. Draw cylinder body and bottom cap (solid color, no shading)
+  ctx.beginPath();
+  ctx.moveTo(x, top);
+  ctx.lineTo(x + w, top);
+  ctx.lineTo(x + w, botY);
+  ctx.ellipse(x + rx, botY, rx, ry, 0, 0, Math.PI, false);
+  ctx.lineTo(x, top);
+  ctx.closePath();
+  ctx.fillStyle = baseColor;
+  ctx.fill();
+  
+  // 2. Draw sprinkles
+  drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey);
+  
+  // 3. Draw top cap ellipse
+  ctx.beginPath();
+  ctx.ellipse(x + rx, top, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = baseColor;
+  ctx.fill();
+  
+  // Flat top cap face overlay (subtle tint to define the 3D surface)
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+  ctx.fill();
+  
+  ctx.restore();
 }
 
 function drawLiquidSprinkles(x, w, top, height, ci, sprinkleKey) {
@@ -503,19 +534,19 @@ function drawTube(R, spec) {
 
   const wall = w * 0.085;
   const rt = w * 0.17, rb = w * 0.46;
-  const neck = h * 0.17;
+  const neck = h * 0.11;
   const ix = x + wall, iw = w - 2 * wall;
   const itop = y + neck, ibot = y + h - wall;
   const irb = Math.max(2, rb - wall);
   const segH = (ibot - itop) / CAP;
   const active = spec.glow || spec.hint;
 
-  // cam gövde zemini
+  // 1. Cam gövde zemini
   tubePath(x, y, w, h, rt, rb);
   ctx.fillStyle = THEME.panel;
   ctx.fill();
 
-  // sıvı — düz renk katmanlar (iç şekle kırpılmış)
+  // 2. Sıvı — 3D katmanlar (iç şekle kırpılmış)
   ctx.save();
   innerPath(ix, itop, iw, ibot, irb);
   ctx.clip();
@@ -531,11 +562,30 @@ function drawTube(R, spec) {
   }
   ctx.restore();
 
-  // dış hat (seçili/ipucu → vurgu rengi)
+  // 3. Dış hat (seçili/ipucu → vurgu rengi)
   tubePath(x, y, w, h, rt, rb);
   ctx.lineWidth = active ? 3 : 1.5;
   ctx.strokeStyle = active ? THEME.accent : 'rgba(255,255,255,0.18)';
   ctx.stroke();
+
+  // 4. 3D Şişe Ağzı (Mouth Ellipse)
+  ctx.save();
+  const lipExt = w * 0.06;
+  const mouthRx = w / 2 + lipExt;
+  const mouthRy = w * 0.065;
+  const mouthCx = x + w / 2;
+  const mouthCy = y;
+  
+  ctx.beginPath();
+  ctx.ellipse(mouthCx, mouthCy, mouthRx, mouthRy, 0, 0, Math.PI * 2);
+  // Koyu iç delik
+  ctx.fillStyle = 'rgba(12, 10, 32, 0.7)';
+  ctx.fill();
+  // Cam kenarı vurgusu
+  ctx.strokeStyle = active ? THEME.accent : 'rgba(255, 255, 255, 0.18)';
+  ctx.lineWidth = active ? 2.5 : 1.5;
+  ctx.stroke();
+  ctx.restore();
 
   if (transformed) ctx.restore();
 }
