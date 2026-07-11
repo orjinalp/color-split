@@ -15,7 +15,7 @@ final class GameViewController: UIViewController, WKNavigationDelegate, WKScript
     private var didEarnRewardForCurrentAd = false
 
     private enum AdMob {
-        static let rewardedAdUnitID = "ca-app-pub-9218266514966883/7344921948"
+        static let rewardedAdUnitID = "ca-app-pub-9218266514966883/6396626182"
         static let bannerAdUnitID = "ca-app-pub-9218266514966883/8264654318"
     }
 

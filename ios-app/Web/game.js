@@ -5,9 +5,9 @@
 // garanti edilir (aynı çözücü "ipucu" düğmesini de besler).
 
 // ─── REKLAM YAPILANDIRMASI (AdMob iOS Backup) ──────────────────────────────────
-// Ödüllü Reklam (10 Otomatik Hamle Hakkı - "get 10 move assisted"):
+// Ödüllü Reklam (1000 altın bonusu):
 // App ID:     ca-app-pub-9218266514966883~9453060593
-// Ad Unit ID: ca-app-pub-9218266514966883/7344921948
+// Ad Unit ID: ca-app-pub-9218266514966883/6396626182
 //
 // Banner Reklam (Bottom Banner):
 // App ID:     ca-app-pub-9218266514966883~9453060593
@@ -72,7 +72,7 @@ const UNDO_COST = 250;
 const ADD_COST = 700;
 const START_COINS = 500;
 const WIN_COINS = 60;
-const BONUS_COINS = 500;
+const BONUS_COINS = 1000;
 const MAX_EXTRA = 2;           // "şişe ekle" ile en fazla eklenebilir boş şişe
 
 // ─── YARDIMCILAR ─────────────────────────────────────────────────────────────
