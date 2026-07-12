@@ -28,10 +28,10 @@ default_platform(:ios)
 
 APP_ID = "com.orjinalp.colorsplit"
 TEAM_ID = "2CTYTPF2MA"
-FASTLANE_PATH = __dir__
+FASTLANE_PATH = File.expand_path(__dir__)
 REPO_ROOT = File.expand_path("../..", FASTLANE_PATH)
-METADATA_PATH = File.join(FASTLANE_PATH, "metadata")
-SCREENSHOTS_PATH = File.join(FASTLANE_PATH, "screenshots")
+METADATA_PATH = File.expand_path("metadata", FASTLANE_PATH)
+SCREENSHOTS_PATH = File.expand_path("screenshots", FASTLANE_PATH)
 
 def screenshot_dimensions(path)
   output = `/usr/bin/sips -g pixelWidth -g pixelHeight #{path.shellescape} 2>/dev/null`
