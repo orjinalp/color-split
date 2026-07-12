@@ -1,6 +1,7 @@
 require "fileutils"
 require "shellwords"
 require "deliver/upload_metadata"
+require "spaceship"
 
 # fastlane 2.237.0, ilk App Store sürümünde henüz review-detail kaydı yoksa
 # ek dosya kontrolünde `No data` hatası veriyor. Review eki kullanmadığımız için
@@ -92,6 +93,49 @@ platform :ios do
   private_lane :upload_store_listing do |options|
     prepare_store_screenshots
 
+    # Diagnostic check using Spaceship Connect API
+    begin
+      UI.message("--- APPCAN DIAGNOSTICS: CONNECTING TO APP STORE CONNECT ---")
+      api_key = options[:api_key]
+      if api_key
+        Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+          key_id: api_key[:key_id] || api_key["key_id"],
+          issuer_id: api_key[:issuer_id] || api_key["issuer_id"],
+          filepath: api_key[:key_filepath] || api_key["key_filepath"]
+        )
+        app = Spaceship::ConnectAPI::App.find(APP_ID)
+        if app
+          UI.message("App found: #{app.name} (#{app.id})")
+          versions = app.get_app_store_versions
+          UI.message("Found #{versions.length} versions on App Store Connect:")
+          versions.each do |v|
+            UI.message("  - Version: #{v.version_string}, State: #{v.app_store_state}, Created: #{v.created_date}")
+          end
+          
+          target_version = ENV["APP_VERSION"] || "1.0.0"
+          matching_version = versions.find { |v| v.version_string == target_version }
+          if matching_version
+            UI.message("Target version #{target_version} exists. State: #{matching_version.app_store_state}")
+            editable_states = %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED INVALID_BINARY METADATA_REJECTED REJECTED WAITING_FOR_EXPORT_COMPLIANCE]
+            if editable_states.include?(matching_version.app_store_state)
+              UI.success("Target version #{target_version} is in an EDITABLE state: #{matching_version.app_store_state}")
+            else
+              UI.important("Target version #{target_version} is NOT editable (State: #{matching_version.app_store_state}). Uploading metadata/screenshots to this version will fail or be ignored by Apple!")
+            end
+          else
+            UI.important("Target version #{target_version} does NOT exist on App Store Connect yet. Fastlane will attempt to create it.")
+          end
+        else
+          UI.error("Could not find App with Bundle ID: #{APP_ID}")
+        end
+      else
+        UI.error("No API Key provided to upload_store_listing.")
+      end
+      UI.message("--- APPCAN DIAGNOSTICS: END ---")
+    rescue => e
+      UI.error("Failed to run App Store Connect diagnostics: #{e.message}")
+    end
+
     found = Dir[File.join(SCREENSHOTS_PATH, "**", "*.png")].sort
     UI.message("TEŞHİS — hazırlanan ekran görüntüsü sayısı: #{found.length}")
     found.each { |f| UI.message("  #{f.sub(SCREENSHOTS_PATH + '/', '')}") }
@@ -103,6 +147,8 @@ platform :ios do
       metadata_path: METADATA_PATH,
       screenshots_path: SCREENSHOTS_PATH,
       skip_binary_upload: true,
+      skip_metadata: false,
+      skip_screenshots: false,
       submit_for_review: false,
       force: true,
       overwrite_screenshots: true,
