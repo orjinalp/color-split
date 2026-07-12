@@ -148,7 +148,13 @@ platform :ios do
       force: true,
       overwrite_screenshots: true,
       precheck_include_in_app_purchases: false,
-      run_precheck_before_submit: false
+      run_precheck_before_submit: false,
+      app_review_information: {
+        first_name: "alpcan",
+        last_name: "tuna",
+        phone_number: "+905468799065",
+        email_address: "alpcanut@icloud.com"
+      }
     )
   end
 
