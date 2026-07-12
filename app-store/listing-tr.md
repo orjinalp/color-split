@@ -28,7 +28,7 @@ Bir şişeye dokun, ardından sıvıyı dökmek istediğin şişeyi seç. Rengi 
 
 ÖZELLİKLER
 • Kolay öğrenilen dokunmatik oynanış
-• Giderek zorlaşan 20 çözülebilir bölüm
+• Giderek zorlaşan 100 çözülebilir bölüm
 • Geçerli hamleyi uygulayan ipucu
 • Son hamleyi geri alma
 • Zorlandığında boş şişe ekleme

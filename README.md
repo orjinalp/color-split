@@ -15,7 +15,7 @@ Canvas tabanlı bir renk sıralama bulmacası. Sıvıları doğru şişelere dö
 ## Özellikler
 
 - Full-canvas oyun; düz, sade tasarım
-- 20 bölüm; deterministik üretim + dahili çözücü (çözülebilirlik garantisi ve
+- 100 bölüm; deterministik üretim + dahili çözücü (çözülebilirlik garantisi ve
   ipucu için)
 - Talep-üzerine render (boşta çizim yapmaz)
 - Hamburger menü: Ben, Liderlik Tablosu, Ayarlar, Nasıl Oynanır, Gizlilik
@@ -49,3 +49,8 @@ python -m http.server 8000
 Yayın dosyaları `docs/` klasöründedir: **Settings → Pages → Branch: main /
 folder: `/docs`**. iOS paketindeki web kopyasını yenilemek için
 `ios-app/sync-web.sh` çalıştır.
+
+## Android / Google Play
+
+Yeniden kullanılabilir Fastlane metadata ve AAB yayın tabanı
+[`android-app/README.md`](android-app/README.md) altında belgelenmiştir.

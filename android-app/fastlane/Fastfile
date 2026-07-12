@@ -1,0 +1,86 @@
+require "fileutils"
+
+opt_out_usage
+default_platform(:android)
+
+FASTLANE_ROOT = File.expand_path(__dir__)
+ANDROID_ROOT = File.expand_path("..", FASTLANE_ROOT)
+METADATA_PATH = File.expand_path("metadata/android", FASTLANE_ROOT)
+
+def required_env(name)
+  value = ENV[name]&.strip
+  UI.user_error!("Missing required environment variable: #{name}") if value.nil? || value.empty?
+  value
+end
+
+def play_credentials
+  path = File.expand_path(required_env("PLAY_STORE_JSON_KEY_PATH"))
+  UI.user_error!("Google Play service-account file does not exist: #{path}") unless File.file?(path)
+  path
+end
+
+def play_track
+  track = ENV.fetch("PLAY_TRACK", "internal")
+  allowed = %w[internal alpha beta production]
+  UI.user_error!("Invalid PLAY_TRACK '#{track}'. Allowed: #{allowed.join(', ')}") unless allowed.include?(track)
+  track
+end
+
+def release_status
+  status = ENV.fetch("RELEASE_STATUS", "completed")
+  allowed = %w[draft completed inProgress halted]
+  UI.user_error!("Invalid RELEASE_STATUS '#{status}'. Allowed: #{allowed.join(', ')}") unless allowed.include?(status)
+  status
+end
+
+def metadata_enabled?
+  ENV.fetch("UPLOAD_METADATA", "true").downcase == "true"
+end
+
+platform :android do
+  desc "Upload Google Play listing text and images without an APK/AAB"
+  lane :metadata do
+    UI.user_error!("Metadata directory does not exist: #{METADATA_PATH}") unless Dir.exist?(METADATA_PATH)
+
+    upload_to_play_store(
+      package_name: required_env("PACKAGE_NAME"),
+      json_key: play_credentials,
+      metadata_path: METADATA_PATH,
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
+      validate_only: ENV.fetch("VALIDATE_ONLY", "false").downcase == "true"
+    )
+  end
+
+  desc "Upload an existing signed AAB and optionally its listing metadata"
+  lane :release do
+    aab_path = File.expand_path(required_env("AAB_PATH"), ANDROID_ROOT)
+    UI.user_error!("Signed AAB does not exist: #{aab_path}") unless File.file?(aab_path)
+
+    status = release_status
+    options = {
+      package_name: required_env("PACKAGE_NAME"),
+      json_key: play_credentials,
+      aab: aab_path,
+      track: play_track,
+      release_status: status,
+      metadata_path: METADATA_PATH,
+      skip_upload_apk: true,
+      skip_upload_metadata: !metadata_enabled?,
+      skip_upload_images: !metadata_enabled?,
+      skip_upload_screenshots: !metadata_enabled?,
+      validate_only: ENV.fetch("VALIDATE_ONLY", "false").downcase == "true"
+    }
+
+    if status == "inProgress"
+      rollout = Float(ENV.fetch("ROLLOUT", "0.1"))
+      UI.user_error!("ROLLOUT must be greater than 0 and at most 1") unless rollout.positive? && rollout <= 1
+      options[:rollout] = rollout
+    end
+
+    upload_to_play_store(**options)
+  end
+end

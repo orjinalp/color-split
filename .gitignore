@@ -12,6 +12,14 @@ ios-app/fastlane/Preview.html
 ios-app/fastlane/test_output/
 ios-app/vendor/
 ios-app/.bundle/
+android-app/fastlane/report.xml
+android-app/fastlane/Preview.html
+android-app/fastlane/test_output/
+android-app/vendor/
+android-app/.bundle/
+android-app/keystore.properties
+android-app/*.jks
+android-app/*.keystore
 *.p8
 *.p12
 *.mobileprovision

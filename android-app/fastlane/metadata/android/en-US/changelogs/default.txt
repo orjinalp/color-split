@@ -1,0 +1,1 @@
+The first release of Color Split: 100 levels, hints, undo, extra bottles, and local progress saving.

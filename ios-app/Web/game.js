@@ -1,7 +1,7 @@
 // ─── Color Split — Renk Sıralama Bulmacası ───────────────────────────────────
 // Amaç: her şişeyi tek renk olacak şekilde sırala. Bir şişenin üstündeki aynı
 // renk bloğunu, boş bir şişeye ya da üstü aynı renk olan bir şişeye dökebilirsin.
-// 20 bölüm; bölümler deterministik üretilir ve dahili çözücü ile çözülebilirliği
+// 100 bölüm; bölümler deterministik üretilir ve dahili çözücü ile çözülebilirliği
 // garanti edilir (aynı çözücü "ipucu" düğmesini de besler).
 
 // ─── REKLAM YAPILANDIRMASI (AdMob iOS Backup) ──────────────────────────────────
@@ -43,28 +43,22 @@ const COLORS = [
 
 // ─── BÖLÜMLER ────────────────────────────────────────────────────────────────
 const CAP = 4;                 // her şişenin kapasitesi (katman)
-const LEVELS = [
-  { colors: 3, empty: 2 },     //  1
-  { colors: 4, empty: 2 },     //  2
-  { colors: 4, empty: 2 },     //  3
-  { colors: 5, empty: 2 },     //  4
-  { colors: 5, empty: 2 },     //  5
-  { colors: 6, empty: 2 },     //  6
-  { colors: 6, empty: 2 },     //  7
-  { colors: 7, empty: 2 },     //  8
-  { colors: 7, empty: 2 },     //  9
-  { colors: 8, empty: 2 },     // 10
-  { colors: 8, empty: 2 },     // 11
-  { colors: 8, empty: 2 },     // 12
-  { colors: 9, empty: 2 },     // 13
-  { colors: 9, empty: 2 },     // 14
-  { colors: 9, empty: 2 },     // 15
-  { colors: 10, empty: 2 },    // 16
-  { colors: 10, empty: 2 },    // 17
-  { colors: 10, empty: 2 },    // 18
-  { colors: 10, empty: 2 },    // 19
-  { colors: 10, empty: 2 },    // 20
-];
+const LEVELS = (function () {
+  const arr = [];
+  for (let i = 1; i <= 100; i++) {
+    let colors;
+    if (i <= 5) colors = 3;
+    else if (i <= 12) colors = 4;
+    else if (i <= 20) colors = 5;
+    else if (i <= 30) colors = 6;
+    else if (i <= 45) colors = 7;
+    else if (i <= 60) colors = 8;
+    else if (i <= 80) colors = 9;
+    else colors = 10;
+    arr.push({ colors: colors, empty: 2 });
+  }
+  return arr;
+})();
 
 // Güç-artırıcı bedelleri
 const HINT_COST = 100;
