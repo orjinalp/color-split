@@ -52,7 +52,7 @@ Color Split ücretsizdir. Ödüllü reklamlar isteğe bağlı altın bonusu suna
 - Birincil alt kategori: Casual
 - İkinci alt kategori: Puzzle
 - Fiyat: Ücretsiz
-- Telif: `2026 Alpcan Utku`
+- Telif: `2026 Alpcan`
 
 ## Ekran görüntüleri
 
