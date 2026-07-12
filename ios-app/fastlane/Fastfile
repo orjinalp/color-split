@@ -96,13 +96,11 @@ platform :ios do
     # Diagnostic check using Spaceship Connect API
     begin
       UI.message("--- APPCAN DIAGNOSTICS: CONNECTING TO APP STORE CONNECT ---")
-      api_key = options[:api_key]
-      if api_key
-        Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
-          key_id: api_key[:key_id] || api_key["key_id"],
-          issuer_id: api_key[:issuer_id] || api_key["issuer_id"],
-          filepath: api_key[:key_filepath] || api_key["key_filepath"]
-        )
+      Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+        key_id: ENV.fetch("ASC_KEY_ID"),
+        issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+        filepath: ENV.fetch("ASC_KEY_PATH")
+      )
         app = Spaceship::ConnectAPI::App.find(APP_ID)
         if app
           UI.message("App found: #{app.name} (#{app.id})")
