@@ -513,7 +513,7 @@ function makePourMove(from, to, state) {
 
 function startPourMove(move, speedMultiplier) {
   const mult = speedMultiplier || 1.0;
-  anims.push({ from: move.from, to: move.to, n: move.n, color: move.color, t0: performance.now(), dur: ((520 + move.n * 75) / mult) * 2.0 });
+  anims.push({ from: move.from, to: move.to, n: move.n, color: move.color, t0: performance.now(), dur: (520 + move.n * 75) / mult });
 }
 
 function tubeIsPouringOut(i) {
